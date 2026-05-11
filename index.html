@@ -63,6 +63,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // CONFIGURACIÓN DE FIREBASE (ModaShop)
         const firebaseConfig = {
             apiKey: "AIzaSyB4X4-HY_QTD9_4LGO244mGJidMdSA7lrA",
             authDomain: "tablero-valorizado-a6c2d.firebaseapp.com",
@@ -83,7 +84,7 @@
         let currentUser = null;
         let appData = [];
         let activeTab = 'dashboard';
-        let dashboardSubTab = 'comercial'; // 'comercial', 'capital', 'completo'
+        let dashboardSubTab = 'comercial'; 
         let chartInstances = {}; 
 
         const PUNTOS_VENTA = { deposito: 'Depósito', concordia: 'Local Concordia', chajari: 'Local Chajarí', tendens: 'Tendens' };
@@ -196,7 +197,9 @@
             lastMonthData.forEach(d => {
                 tM += (Number(d.valorMercaderia) || 0);
                 if (d.cotizacionDolar > 1) cotiz = d.cotizacionDolar;
-                if (d.puntoVenta !== 'deposito') { tV += (d.ventas || 0); tObj += (d.objetivo || 0); tT += (d.tickets || 0); tP += (d.productosVendidos || 0); }
+                if (d.puntoVenta !== 'deposito') { 
+                    tV += (d.ventas || 0); tObj += (d.objetivo || 0); tT += (d.tickets || 0); tP += (d.productosVendidos || 0); 
+                }
                 if (d.stock) d.stock.forEach(i => { if(!capPorCat[i.categoria]) capPorCat[i.categoria] = {v:0, c:0}; capPorCat[i.categoria].v += i.valor; capPorCat[i.categoria].c += i.cantidad; });
             });
 
@@ -204,9 +207,26 @@
                 const cur = lastMonthData.find(d => d.puntoVenta === key);
                 const pre = prevMonthData.find(d => d.puntoVenta === key);
                 const isD = key === 'deposito';
-                const vC = cur ? (isD ? (cur.valorMercaderia || 0) : (cur.ventas || 0)) : 0;
-                const vP = pre ? (isD ? (pre.valorMercaderia || 0) : (pre.ventas || 0)) : 0;
-                return { key, nombre: PUNTOS_VENTA[key], vC, vP, growth: vP > 0 ? ((vC-vP)/vP)*100 : 0, obj: cur?.objetivo || 0, tickets: cur?.tickets || 0, units: cur?.productosVendidos || 0, isDepo: isD };
+                
+                // DATA DE VENTAS
+                const vC_sales = cur ? (cur.ventas || 0) : 0;
+                const vP_sales = pre ? (pre.ventas || 0) : 0;
+                
+                // DATA DE CAPITAL
+                const vC_cap = cur ? (cur.valorMercaderia || 0) : 0;
+                const vP_cap = pre ? (pre.valorMercaderia || 0) : 0;
+
+                const growth = isD ? 
+                    (vP_cap > 0 ? ((vC_cap-vP_cap)/vP_cap)*100 : 0) :
+                    (vP_sales > 0 ? ((vC_sales-vP_sales)/vP_sales)*100 : 0);
+
+                return { 
+                    key, nombre: PUNTOS_VENTA[key], 
+                    vC_sales, vP_sales, 
+                    vC_cap, vP_cap, 
+                    growth, 
+                    obj: cur?.objetivo || 0, tickets: cur?.tickets || 0, units: cur?.productosVendidos || 0, isDepo: isD 
+                };
             });
 
             return {
@@ -248,19 +268,17 @@
                 const showCapital = dashboardSubTab === 'capital' || dashboardSubTab === 'completo';
 
                 main.innerHTML = `
-                    <div class="space-y-6">
-                        <!-- Sub-Navegación Interna de Resumen -->
+                    <div class="space-y-6 animate-in slide-in-from-top-2">
                         <div class="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100 w-fit mx-auto print-hidden mb-2">
                             <button onclick="switchDashboardSubTab('comercial')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='comercial'?'subtab-active':'text-gray-400'}">ANÁLISIS COMERCIAL</button>
                             <button onclick="switchDashboardSubTab('capital')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='capital'?'subtab-active':'text-gray-400'}">ANÁLISIS DE CAPITAL</button>
                             <button onclick="switchDashboardSubTab('completo')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='completo'?'subtab-active':'text-gray-400'}">INFORME COMPLETO</button>
                         </div>
 
-                        <!-- KPIs Dinámicos -->
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             ${showComercial ? `
                                 <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500">
-                                    <p class="text-[10px] text-gray-500 font-bold uppercase">Facturación Total (${d.lastMonthString})</p>
+                                    <p class="text-[10px] text-gray-500 font-bold uppercase">Facturación Locales (${d.lastMonthString})</p>
                                     <h3 class="text-xl font-black">${formatCurrency(d.tV)}</h3>
                                     <p class="text-xs text-emerald-600 font-medium">${formatUSD(d.tV/d.cotiz)}</p>
                                 </div>
@@ -272,7 +290,7 @@
                             ` : ''}
                             ${showCapital ? `
                                 <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-indigo-500">
-                                    <p class="text-[10px] text-gray-500 font-bold uppercase">Capital en Mercadería</p>
+                                    <p class="text-[10px] text-gray-500 font-bold uppercase">Capital en Mercadería (Global)</p>
                                     <h3 class="text-xl font-black">${formatCurrency(d.tM)}</h3>
                                     <p class="text-xs text-indigo-600 font-medium">${formatUSD(d.tM/d.cotiz)}</p>
                                 </div>
@@ -281,12 +299,11 @@
                                 <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
                                     <p class="text-[10px] text-gray-500 font-bold uppercase">Unidades por Ticket</p>
                                     <h3 class="text-xl font-black">${d.unidadesTicket.toFixed(2)} u.</h3>
-                                    <p class="text-xs text-blue-600 font-medium">UPT General</p>
+                                    <p class="text-xs text-blue-600 font-medium">Eficiencia UPT</p>
                                 </div>
                             ` : ''}
                         </div>
 
-                        <!-- SECCIÓN COMERCIAL -->
                         ${showComercial ? `
                             <div class="space-y-6">
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -301,7 +318,7 @@
                                 </div>
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Comparativa Mensual (Ventas)</h3>
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Variación Mensual Ventas</h3>
                                         <div class="h-[250px]"><canvas id="chartMomComercial"></canvas></div>
                                     </div>
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -310,68 +327,41 @@
                                     </div>
                                 </div>
                                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                    <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Evolución Histórica de Ventas (YoY)</h3>
+                                    <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Evolución YoY Ventas</h3>
                                     <div class="h-[250px]"><canvas id="chartYoy"></canvas></div>
                                 </div>
                             </div>
                         ` : ''}
 
-                        <!-- SECCIÓN CAPITAL -->
                         ${showCapital ? `
                             <div class="space-y-6">
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Distribución del Capital por Punto</h3>
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Distribución del Capital</h3>
                                         <div class="h-[250px]"><canvas id="chartCapitalMix"></canvas></div>
                                     </div>
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Costo Unitario Promedio por Rubro</h3>
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Valor Unitario por Rubro</h3>
                                         <div class="h-[250px]"><canvas id="chartRubroAvg"></canvas></div>
                                     </div>
                                 </div>
                                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                    <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Comparativa de Capital (Mensual)</h3>
+                                    <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Variación Mensual Capital</h3>
                                     <div class="h-[250px]"><canvas id="chartMomCapital"></canvas></div>
                                 </div>
                             </div>
                         ` : ''}
 
-                        <!-- Diagnóstico Unificado -->
-                        <div class="bg-slate-900 text-white p-8 rounded-2xl shadow-xl border border-slate-800">
-                            <div class="flex items-center gap-3 mb-6">
-                                <div class="p-2 bg-blue-500/20 rounded-lg"><i data-lucide="file-text" class="text-blue-400"></i></div>
-                                <h3 class="text-lg font-bold">Diagnóstico Ejecutivo de Rendimiento</h3>
-                            </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div class="space-y-4">
-                                    <p class="text-slate-400 text-[10px] uppercase font-bold tracking-widest">Análisis Comercial</p>
-                                    <p class="text-slate-200 text-sm leading-relaxed">
-                                        La facturación cerró en <strong>${formatCurrency(d.tV)}</strong> con un cumplimiento del <strong>${d.cumplimiento.toFixed(1)}%</strong> sobre el objetivo.
-                                        La eficiencia en tienda promedió <strong>${d.unidadesTicket.toFixed(2)} unidades</strong> por operación.
-                                    </p>
-                                    <div class="flex gap-4">
-                                        ${d.momIndiv.filter(x=>!x.isDepo).slice(0,3).map(item => `
-                                            <div class="flex-1 bg-slate-800/50 p-3 rounded-xl border border-slate-700">
-                                                <p class="text-[9px] text-slate-500 font-bold mb-1">${item.nombre.split(' ')[1] || item.nombre}</p>
-                                                <p class="text-sm font-black ${item.growth>=0?'text-emerald-400':'text-red-400'}">${item.growth>0?'+':''}${item.growth.toFixed(1)}%</p>
-                                            </div>
-                                        `).join('')}
-                                    </div>
+                        <div class="bg-slate-900 text-white p-8 rounded-2xl shadow-xl">
+                            <div class="flex items-center gap-3 mb-6"><div class="p-2 bg-blue-500/20 rounded-lg"><i data-lucide="file-text" class="text-blue-400"></i></div><h3 class="text-lg font-bold">Diagnóstico Ejecutivo</h3></div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm">
+                                <div class="space-y-3">
+                                    <p class="text-slate-400 uppercase font-bold tracking-widest text-[10px]">Comercial</p>
+                                    <p>Ventas totales: <strong>${formatCurrency(d.tV)}</strong>. Cumplimiento: <strong>${d.cumplimiento.toFixed(1)}%</strong>.</p>
                                 </div>
-                                <div class="space-y-4">
-                                    <p class="text-slate-400 text-[10px] uppercase font-bold tracking-widest">Situación Patrimonial</p>
-                                    <p class="text-slate-200 text-sm leading-relaxed">
-                                        El capital total inmovilizado es de <strong>${formatCurrency(d.tM)}</strong> (${formatUSD(d.tM/d.cotiz)}).
-                                        El tipo de cambio aplicado para este período es de <strong>$${d.cotiz}</strong> por dólar.
-                                    </p>
-                                    <div class="flex gap-4">
-                                        ${d.momIndiv.filter(x=>x.isDepo).map(item => `
-                                            <div class="w-full bg-slate-800/50 p-3 rounded-xl border border-slate-700">
-                                                <p class="text-[9px] text-slate-500 font-bold mb-1">Variación de Capital (${item.nombre})</p>
-                                                <p class="text-sm font-black ${item.growth>=0?'text-emerald-400':'text-red-400'}">${item.growth>0?'+':''}${item.growth.toFixed(1)}%</p>
-                                            </div>
-                                        `).join('')}
-                                    </div>
+                                <div class="space-y-3">
+                                    <p class="text-slate-400 uppercase font-bold tracking-widest text-[10px]">Patrimonial</p>
+                                    <p>Capital total: <strong>${formatCurrency(d.tM)}</strong> (${formatUSD(d.tM/d.cotiz)}). Tipo de cambio: $${d.cotiz}.</p>
                                 </div>
                             </div>
                         </div>
@@ -381,11 +371,10 @@
             } else if (activeTab === 'cargaVentas') {
                 document.getElementById('export-btn-container').style.display = 'none';
                 main.innerHTML = `
-                    <div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-                        <div class="mb-6 text-center"><h2 class="text-2xl font-bold text-gray-800">Carga de Ventas y Metas</h2><p class="text-gray-500 text-sm">Información transaccional mensual por local.</p></div>
+                    <div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border">
                         <form onsubmit="submitGenericForm(event, 'ventas')" class="space-y-6">
                             <div class="p-6 bg-slate-50 rounded-xl border border-slate-200">
-                                <label class="block text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest mb-2">Seleccionar Local</label>
+                                <label class="block text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label>
                                 <select class="w-full p-3 text-xl font-bold border-2 rounded-xl border-blue-200 text-blue-800 outline-none" onchange="handleFormChange('puntoVenta', this.value)">
                                     ${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${formState.puntoVenta===k?'selected':''}>${v}</option>`).join('')}
                                 </select>
@@ -396,23 +385,22 @@
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
-                                <div class="bg-blue-50 p-5 rounded-xl border border-blue-100"><label class="block text-xs font-bold text-blue-800 uppercase mb-2">Venta Real ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 border rounded-xl font-bold text-lg" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required></div>
-                                <div class="bg-amber-50 p-5 rounded-xl border border-amber-100"><label class="block text-xs font-bold text-amber-800 uppercase mb-2">Meta ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 border rounded-xl font-bold text-lg" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required></div>
-                                <div class="bg-purple-50 p-5 rounded-xl border border-purple-100"><label class="block text-xs font-bold text-purple-800 uppercase mb-2">Tickets</label><input type="text" class="w-full p-3 border rounded-xl" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required></div>
-                                <div class="bg-purple-50 p-5 rounded-xl border border-purple-100"><label class="block text-xs font-bold text-purple-800 uppercase mb-2">Productos</label><input type="text" class="w-full p-3 border rounded-xl" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required></div>
+                                <div class="bg-blue-50 p-5 rounded-xl border border-blue-100"><label class="block text-xs font-bold text-blue-800 uppercase mb-2">Venta Real ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 border rounded-xl font-bold" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required></div>
+                                <div class="bg-amber-50 p-5 rounded-xl border border-amber-100"><label class="block text-xs font-bold text-amber-800 uppercase mb-2">Meta ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 border rounded-xl font-bold" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required></div>
+                                <div class="bg-purple-50 p-5 rounded-xl border border-purple-100"><label class="block text-xs font-bold text-purple-800 uppercase mb-2">Tickets</label><input type="text" class="w-full p-3 border rounded-xl font-bold" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required></div>
+                                <div class="bg-purple-50 p-5 rounded-xl border border-purple-100"><label class="block text-xs font-bold text-purple-800 uppercase mb-2">Unidades</label><input type="text" class="w-full p-3 border rounded-xl font-bold" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required></div>
                             </div>
-                            <div class="flex justify-end"><button type="submit" class="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition">Guardar Informe Comercial</button></div>
+                            <div class="flex justify-end"><button type="submit" class="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl">Guardar Ventas</button></div>
                         </form>
                     </div>
                 `;
             } else if (activeTab === 'cargaStock') {
                 document.getElementById('export-btn-container').style.display = 'none';
                 main.innerHTML = `
-                    <div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-                        <div class="mb-6 text-center"><h2 class="text-2xl font-bold text-gray-800">Carga de Inventario (Stock)</h2><p class="text-gray-500 text-sm">Valorización de activos inmovilizados por punto.</p></div>
+                    <div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border">
                         <form onsubmit="submitGenericForm(event, 'stock')" class="space-y-6">
                             <div class="p-6 bg-slate-50 rounded-xl border border-slate-200">
-                                <label class="block text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest mb-2">Seleccionar Ubicación</label>
+                                <label class="block text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label>
                                 <select class="w-full p-3 text-xl font-bold border-2 rounded-xl border-indigo-200 text-indigo-800 outline-none" onchange="handleFormChange('puntoVenta', this.value)">
                                     ${Object.entries(PUNTOS_VENTA).map(([k,v]) => `<option value="${k}" ${formState.puntoVenta===k?'selected':''}>${v}</option>`).join('')}
                                 </select>
@@ -429,14 +417,13 @@
                                 </div>
                                 <div id="stock-rows-container" class="space-y-2"></div>
                             </div>
-                            <div class="flex justify-end"><button type="submit" class="bg-indigo-900 text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition">Guardar Informe de Patrimonio</button></div>
+                            <div class="flex justify-end"><button type="submit" class="bg-indigo-900 text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl">Guardar Stock</button></div>
                         </form>
                     </div>
                 `;
                 window.renderFormStockRows();
             } else {
-                document.getElementById('export-btn-container').style.display = 'none';
-                main.innerHTML = `<div class="bg-white rounded-xl shadow-sm border overflow-hidden animate-in slide-in-from-bottom-2"><div class="p-6 border-b bg-slate-50 flex justify-between items-center font-bold">HISTORIAL DE CARGAS UNIFICADAS</div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-white text-gray-400 border-b"><th class="p-4">Período</th><th class="p-4">Punto</th><th class="p-4 text-right">Venta</th><th class="p-4 text-right">Capital</th><th class="p-4 text-center">Acción</th></tr></thead><tbody>${appData.slice().sort((a,b)=>b.id-a.id).map(r=>`<tr class="border-b hover:bg-slate-50"><td class="p-4 font-bold">${r.mes} ${r.año}</td><td class="p-4 text-blue-600 font-bold">${PUNTOS_VENTA[r.puntoVenta]}</td><td class="p-4 text-right font-bold text-emerald-600">${r.ventas ? formatCurrency(r.ventas) : '-'}</td><td class="p-4 text-right font-bold text-indigo-700">${r.valorMercaderia ? formatCurrency(r.valorMercaderia) : '-'}</td><td class="p-4 text-center"><button onclick="deleteRecord('${r.dbId}')" class="text-red-300 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div></div>`;
+                main.innerHTML = `<div class="bg-white rounded-xl shadow-sm border overflow-hidden"><div class="p-6 border-b bg-slate-50 flex justify-between items-center font-bold uppercase text-xs tracking-widest">Historial Unificado</div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-white text-gray-400 border-b"><th class="p-4">Período</th><th class="p-4">Punto</th><th class="p-4 text-right">Venta</th><th class="p-4 text-right">Capital</th><th class="p-4 text-center">Acción</th></tr></thead><tbody>${appData.slice().sort((a,b)=>b.id-a.id).map(r=>`<tr class="border-b hover:bg-slate-50"><td class="p-4 font-bold text-slate-800">${r.mes} ${r.año}</td><td class="p-4 text-blue-600 font-bold">${PUNTOS_VENTA[r.puntoVenta]}</td><td class="p-4 text-right font-bold text-emerald-600">${r.ventas ? formatCurrency(r.ventas) : '-'}</td><td class="p-4 text-right font-bold text-indigo-700">${r.valorMercaderia ? formatCurrency(r.valorMercaderia) : '-'}</td><td class="p-4 text-center"><button onclick="deleteRecord('${r.dbId}')" class="text-red-300 hover:text-red-600 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div></div>`;
             }
             lucide.createIcons();
         }
@@ -450,24 +437,22 @@
             
             const locals = d.momIndiv.filter(m => !m.isDepo);
 
-            // COMERCIAL
             if (document.getElementById('chartVentasMix')) {
-                chartCfg('chartVentasMix', 'doughnut', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.vC), backgroundColor: ['#0284c7', '#16a34a', '#7c3aed'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: c => ' ' + formatCurrency(c.raw) } } } });
-                chartCfg('chartGap', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ label: 'Venta Real', data: locals.map(l=>l.vC), backgroundColor: '#3b82f6', borderRadius: 4 }, { label: 'Objetivo', data: locals.map(l=>l.obj), backgroundColor: '#e2e8f0', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
-                chartCfg('chartMomComercial', 'bar', { labels: locals.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: locals.map(m=>m.vP), backgroundColor: '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: locals.map(m=>m.vC), backgroundColor: '#3b82f6', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                chartCfg('chartVentasMix', 'doughnut', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.vC_sales), backgroundColor: ['#0284c7', '#16a34a', '#7c3aed'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
+                chartCfg('chartGap', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ label: 'Venta Real', data: locals.map(l=>l.vC_sales), backgroundColor: '#3b82f6', borderRadius: 4 }, { label: 'Objetivo', data: locals.map(l=>l.obj), backgroundColor: '#e2e8f0', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                chartCfg('chartMomComercial', 'bar', { labels: locals.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: locals.map(m=>m.vP_sales), backgroundColor: '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: locals.map(m=>m.vC_sales), backgroundColor: '#3b82f6', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
                 chartCfg('chartUPT', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.tickets > 0 ? l.units/l.tickets : 0), backgroundColor: '#8b5cf6', borderRadius: 20 }] }, { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } });
                 
                 const yoyG = {}; appData.forEach(r => { if(r.puntoVenta!=='deposito'){ if(!yoyG[r.mes]) yoyG[r.mes]={name:r.mes}; yoyG[r.mes][r.año]=(yoyG[r.mes][r.año]||0)+(r.ventas||0); } });
                 const yoyS = Object.values(yoyG).sort((a,b)=>monthOrder[a.name]-monthOrder[b.name]);
                 const years = Array.from(new Set(appData.map(r=>r.año))).sort();
-                chartCfg('chartYoy', 'bar', { labels: yoyS.map(y=>y.name), datasets: years.map((y,i)=>({ label:`Año ${y}`, data:yoyS.map(it=>it[y]||0), backgroundColor:['#94a3b8','#3b82f6','#10b981'][i%3], borderRadius:4 })) }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                chartCfg('chartYoy', 'bar', { labels: yoyS.map(y=>y.name), datasets: years.map((y,i)=>({ label:y, data:yoyS.map(it=>it[y]||0), backgroundColor:['#94a3b8','#3b82f6','#10b981'][i%3], borderRadius:4 })) }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
             }
 
-            // CAPITAL
             if (document.getElementById('chartCapitalMix')) {
-                chartCfg('chartCapitalMix', 'doughnut', { labels: d.momIndiv.map(m=>m.nombre), datasets: [{ data: d.momIndiv.map(m=>m.vC), backgroundColor: ['#64748b', '#0284c7', '#16a34a', '#7c3aed'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: c => ' ' + formatCurrency(c.raw) } } } });
-                chartCfg('chartRubroAvg', 'bar', { labels: d.catStats.map(c=>c.name), datasets: [{ label: 'Valor Prom. Unidad ($)', data: d.catStats.map(c=>c.avg), backgroundColor: '#10b981', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
-                chartCfg('chartMomCapital', 'bar', { labels: d.momIndiv.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: d.momIndiv.map(m=>m.vP), backgroundColor: '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: d.momIndiv.map(m=>m.vC), backgroundColor: '#3b82f6', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                chartCfg('chartCapitalMix', 'doughnut', { labels: d.momIndiv.map(m=>m.nombre), datasets: [{ data: d.momIndiv.map(m=>m.vC_cap), backgroundColor: ['#64748b', '#0284c7', '#16a34a', '#7c3aed'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
+                chartCfg('chartRubroAvg', 'bar', { labels: d.catStats.map(c=>c.name), datasets: [{ label: 'Valor Prom. Unidad', data: d.catStats.map(c=>c.avg), backgroundColor: '#10b981', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                chartCfg('chartMomCapital', 'bar', { labels: d.momIndiv.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: d.momIndiv.map(m=>m.vP_cap), backgroundColor: '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: d.momIndiv.map(m=>m.vC_cap), backgroundColor: '#3b82f6', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
             }
         }
         render();
