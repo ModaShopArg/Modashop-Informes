@@ -73,7 +73,6 @@
 
         // ==============================================================================
         // ¡PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE!
-        // Reemplaza todo el bloque const firebaseConfig con el que te dio la página de Firebase
         // ==============================================================================
         const firebaseConfig = {
   apiKey: "AIzaSyB4X4-HY_QTD9_4LGO244mGJidMdSA7lrA",
@@ -94,7 +93,7 @@
             console.error("Falta configurar Firebase. Revisa la línea 71 del código.", e);
         }
 
-        const appId = 'mi-tablero-ceo-empresa'; // ID único para tu colección de datos
+        const appId = 'mi-tablero-ceo-empresa'; 
 
         // --- VARIABLES GLOBALES ---
         let currentUser = null;
@@ -142,7 +141,6 @@
                 }
             });
         }
-
 
         // --- UTILIDADES ---
         const formatCurrency = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
@@ -208,7 +206,7 @@
 
         window.submitForm = async (e) => {
             e.preventDefault();
-            if (!currentUser) return alert("Por favor, espera a que el sistema conecte con la nube. Asegurate de haber pegado tus llaves de Firebase en el código.");
+            if (!currentUser) return alert("Por favor, espera a que el sistema conecte con la nube. Asegúrate de haber pegado tus llaves de Firebase en el código.");
 
             const pv = formState.puntoVenta;
             const newRecord = {
@@ -244,7 +242,7 @@
                         <input type="text" placeholder="Categoría (Ej: Línea Blanca)" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required />
                     </div>
                     <div class="w-32">
-                        <input type="number" placeholder="Unidades" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-center" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required />
+                        <input type="number" step="any" placeholder="Unidades" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-center" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required />
                     </div>
                     ${formState.stock.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : ''}
                 </div>
@@ -518,7 +516,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-emerald-700 mb-2">Cotización Dólar</label>
-                                    <input type="number" placeholder="Ej: 1050" class="w-full p-2.5 border border-emerald-300 rounded-lg text-emerald-800 outline-none" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required>
+                                    <input type="number" step="any" placeholder="Ej: 1050" class="w-full p-2.5 border border-emerald-300 rounded-lg text-emerald-800 outline-none" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required>
                                 </div>
                             </div>
 
@@ -528,7 +526,7 @@
                                     <label class="block text-lg font-semibold text-blue-900 mb-1 flex items-center gap-2"><i data-lucide="trending-up" class="w-5 h-5"></i> Facturación Real</label>
                                     <div class="relative mt-4">
                                         <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
-                                        <input type="number" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required>
+                                        <input type="number" step="any" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required>
                                     </div>
                                 </div>
                                 ` : ''}
@@ -537,7 +535,7 @@
                                     <label class="block text-lg font-semibold text-indigo-900 mb-1 flex items-center gap-2"><i data-lucide="archive" class="w-5 h-5"></i> Total Mercadería Valorizada</label>
                                     <div class="relative mt-4">
                                         <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
-                                        <input type="number" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.valorMercaderia}" onchange="handleFormChange('valorMercaderia', this.value)" required>
+                                        <input type="number" step="any" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.valorMercaderia}" onchange="handleFormChange('valorMercaderia', this.value)" required>
                                     </div>
                                 </div>
 
@@ -546,7 +544,7 @@
                                     <label class="block text-lg font-semibold text-amber-900 mb-1 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5"></i> Objetivo de Venta (Meta)</label>
                                     <div class="relative mt-4 max-w-md">
                                         <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
-                                        <input type="number" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required>
+                                        <input type="number" step="any" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required>
                                     </div>
                                 </div>
                                 ` : ''}
@@ -556,11 +554,11 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-purple-50 p-6 rounded-xl border border-purple-100">
                                 <div>
                                     <label class="block text-sm font-semibold text-purple-900 mb-2">Total Tickets</label>
-                                    <input type="number" class="w-full p-3 rounded-lg border outline-none" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required>
+                                    <input type="number" step="any" class="w-full p-3 rounded-lg border outline-none" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-purple-900 mb-2">Unidades Vendidas</label>
-                                    <input type="number" class="w-full p-3 rounded-lg border outline-none" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required>
+                                    <input type="number" step="any" class="w-full p-3 rounded-lg border outline-none" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required>
                                 </div>
                             </div>
                             ` : ''}
@@ -725,9 +723,7 @@
             });
         }
 
-        // --- INICIO MIENTRAS SE CONECTA ---
         render();
-
     </script>
 </body>
 </html>
