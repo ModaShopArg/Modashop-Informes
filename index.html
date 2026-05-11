@@ -124,7 +124,7 @@
                     statusEl.className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-emerald-600 flex items-center gap-1";
                     lucide.createIcons();
 
-                    const recordsRef = collection(db, 'artifacts', appId, 'public', 'data');
+                    const recordsRef = collection(db, 'registros_mensuales');
                     onSnapshot(recordsRef, (snapshot) => {
                         appData = [];
                         snapshot.forEach(documento => {
@@ -180,7 +180,7 @@
                         alert("Sincronizando registros con la nube... (Esto puede tomar unos segundos)");
                         for (const record of importedData) {
                             const docId = record.dbId || Date.now().toString() + Math.floor(Math.random() * 1000).toString();
-                            const docRef = doc(db, 'artifacts', appId, 'public', docId);
+                            const docRef = doc(db, 'registros_mensuales', docId);
                             await setDoc(docRef, record);
                         }
                         alert('¡Datos restaurados y subidos a la nube exitosamente!');
@@ -194,7 +194,7 @@
         window.deleteRecord = async (dbId) => {
             if (!currentUser) return alert('Conexión a la nube requerida para eliminar.');
             if(confirm('¿Seguro que deseas eliminar este registro de la base de datos general?')) {
-                const docRef = doc(db, 'artifacts', appId, 'public', dbId);
+                const docRef = doc(db, 'registros_mensuales', dbId);
                 await deleteDoc(docRef);
             }
         };
@@ -223,7 +223,7 @@
             };
             
             const docId = Date.now().toString(); 
-            const docRef = doc(db, 'artifacts', appId, 'public', docId);
+            const docRef = doc(db, 'registros_mensuales', docId);
             
             await setDoc(docRef, newRecord);
             
