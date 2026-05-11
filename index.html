@@ -26,10 +26,8 @@
     <!-- Header -->
     <header class="bg-white shadow-sm print-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-center relative">
-            <!-- Reemplaza el src con la ruta o URL de tu logo real -->
             <img src="ModaShop.png" alt="Logo de la Empresa" class="h-16 object-contain" />
             
-            <!-- Botón Exportar PDF (Esquina Superior Derecha) -->
             <div id="export-btn-container" class="absolute right-4 sm:right-8 top-1/2 transform -translate-y-1/2" style="display: none;">
                 <button onclick="window.print()" class="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition shadow-sm font-medium">
                     <i data-lucide="printer" class="w-4 h-4"></i> <span class="hidden sm:inline">Exportar PDF</span>
@@ -93,7 +91,6 @@
 
         const appId = 'mi-tablero-ceo-empresa'; 
 
-        // --- VARIABLES GLOBALES ---
         let currentUser = null;
         let appData = [];
         let activeTab = 'dashboard';
@@ -103,14 +100,12 @@
         const monthOrder = { 'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12 };
         const mesesList = Object.keys(monthOrder);
 
-        // ESTADO DEL FORMULARIO (Se elimina valorMercaderia ya que es automático)
         let formState = {
             mes: 'Enero', año: new Date().getFullYear().toString(), puntoVenta: 'concordia', cotizacionDolar: '',
             ventas: '', objetivo: '', tickets: '', productosVendidos: '',
             stock: [{ categoria: '', cantidad: '', valor: '' }]
         };
 
-        // --- AUTENTICACIÓN Y SINCRONIZACIÓN EN TIEMPO REAL ---
         if (auth) {
             signInAnonymously(auth).catch((error) => console.error("Error de conexión:", error));
 
@@ -141,33 +136,26 @@
             });
         }
 
-        // --- UTILIDADES ---
         const formatCurrency = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
         const formatUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
         const formatNumber = (val) => new Intl.NumberFormat('es-AR').format(val);
-        window.formatCurrency = formatCurrency; // Exportar para uso en los inputs
+        window.formatCurrency = formatCurrency;
 
-        // NUEVO: Analizador inteligente para números pegados desde Excel (Formato Argentina)
         window.parseInputNumber = (val) => {
             if (!val) return 0;
             let str = String(val).trim();
-            // Eliminar símbolos de moneda y espacios
             str = str.replace(/[$$\s]/g, '');
             
             const lastComma = str.lastIndexOf(',');
             const lastDot = str.lastIndexOf('.');
             
             if (lastComma > lastDot) {
-                // Ej: 1.234.567,89 (Puntos de miles, coma decimal)
                 str = str.replace(/\./g, '').replace(',', '.');
             } else if (lastDot > lastComma && lastComma !== -1) {
-                // Ej: 1,234,567.89 (Comas de miles, punto decimal - Formato US)
                 str = str.replace(/,/g, '');
             } else if (lastComma !== -1 && lastDot === -1) {
-                // Ej: 1234,89 (Coma decimal)
                 str = str.replace(',', '.');
             } else if (lastDot !== -1 && lastComma === -1) {
-                // Ej: 1.234 (Punto de miles sin decimales)
                 str = str.replace(/\./g, '');
             }
             
@@ -230,8 +218,6 @@
         
         window.handleStockChange = (index, field, value) => { 
             formState.stock[index][field] = value; 
-            
-            // Calculo en vivo de la suma valorizada usando parseInputNumber
             const suma = formState.stock.reduce((acc, item) => acc + window.parseInputNumber(item.valor), 0);
             const sumEl = document.getElementById('stock-sum-display');
             if(sumEl) sumEl.innerText = 'Total Automático: ' + formatCurrency(suma);
@@ -246,20 +232,18 @@
 
             const pv = formState.puntoVenta;
             
-            // Limpiamos el stock de filas vacias y aplicamos el parseo
             const stockLimpio = formState.stock.filter(s => s.categoria && (s.cantidad !== '' || s.valor !== '')).map(s => ({
                 categoria: s.categoria, 
                 cantidad: window.parseInputNumber(s.cantidad),
                 valor: window.parseInputNumber(s.valor)
             }));
 
-            // CÁLCULO AUTOMÁTICO DE LA MERCADERIA VALORIZADA
             const totalMercaderiaCalculado = stockLimpio.reduce((acc, item) => acc + item.valor, 0);
 
             const newRecord = {
                 mes: formState.mes, año: formState.año, puntoVenta: pv,
                 cotizacionDolar: window.parseInputNumber(formState.cotizacionDolar) || 1,
-                valorMercaderia: totalMercaderiaCalculado, // Valor generado automáticamente
+                valorMercaderia: totalMercaderiaCalculado,
                 ventas: pv === 'deposito' ? 0 : window.parseInputNumber(formState.ventas),
                 objetivo: pv === 'deposito' ? 0 : window.parseInputNumber(formState.objetivo),
                 tickets: pv === 'deposito' ? 0 : window.parseInputNumber(formState.tickets),
@@ -272,7 +256,6 @@
             
             await setDoc(docRef, newRecord);
             
-            // Limpiamos el formulario después de guardar
             formState.ventas = ''; formState.objetivo = ''; 
             formState.tickets = ''; formState.productosVendidos = ''; formState.stock = [{ categoria: '', cantidad: '', valor: '' }];
             
@@ -300,7 +283,6 @@
             `).join('');
             lucide.createIcons();
             
-            // Actualizar la suma inicial visible
             const suma = formState.stock.reduce((acc, item) => acc + window.parseInputNumber(item.valor), 0);
             const sumEl = document.getElementById('stock-sum-display');
             if(sumEl) sumEl.innerText = 'Total Automático: ' + formatCurrency(suma);
@@ -329,7 +311,6 @@
             let totalVentas = 0, totalObjetivo = 0, totalTickets = 0, totalProductos = 0;
             let totalMercaderiaGlobal = 0, cotizacionActual = 1;
             
-            // Para el gráfico de valorización por categoría
             const capitalPorCategoria = {};
 
             lastMonthData.forEach(d => {
@@ -343,7 +324,6 @@
                     totalProductos += d.productosVendidos;
                 }
                 
-                // Extraer valor de las categorías
                 if (d.stock) {
                     d.stock.forEach(item => {
                         const val = Number(item.valor) || 0;
@@ -366,6 +346,26 @@
             const bestLocalName = bestLocalData ? PUNTOS_VENTA[bestLocalData.puntoVenta] : '-';
             const totalStockActual = lastMonthData.reduce((acc, row) => acc + row.stock.reduce((s, item) => s + item.cantidad, 0), 0);
 
+            // NUEVO: Cálculo individual de los 4 Puntos para el Diagnóstico y Gráfico MoM
+            const momIndividual = Object.keys(PUNTOS_VENTA).map(key => {
+                const current = lastMonthData.find(d => d.puntoVenta === key);
+                const prev = prevMonthData.find(d => d.puntoVenta === key);
+                const isDeposito = key === 'deposito';
+
+                const valCurrent = current ? (isDeposito ? current.valorMercaderia : current.ventas) : 0;
+                const valPrev = prev ? (isDeposito ? prev.valorMercaderia : prev.ventas) : 0;
+                const growth = valPrev > 0 ? ((valCurrent - valPrev) / valPrev) * 100 : (valCurrent > 0 ? 100 : 0);
+
+                return {
+                    key,
+                    nombre: PUNTOS_VENTA[key],
+                    isDeposito,
+                    valCurrent,
+                    valPrev,
+                    growth
+                };
+            });
+
             const prevStockMap = {};
             prevMonthData.forEach(row => {
                 row.stock.forEach(item => { prevStockMap[`${row.puntoVenta}-${item.categoria}`] = item.cantidad; });
@@ -385,7 +385,6 @@
             });
             stockRotation = stockRotation.sort((a, b) => a.variacion - b.variacion).slice(0, 5);
             
-            // Ordenar categorías por mayor valor
             const topCategoriasValor = Object.keys(capitalPorCategoria)
                 .map(cat => ({ categoria: cat, valor: capitalPorCategoria[cat] }))
                 .sort((a, b) => b.valor - a.valor);
@@ -394,7 +393,8 @@
                 lastMonthString: `${lastMonth} ${lastYear}`, prevMonthString: prevMonth ? `${prevMonth} ${prevYear}` : '-',
                 totalVentas, percGrowth, cumplimiento, ticketPromedio, unidadesTicket,
                 bestLocalName, totalStockActual, totalMercaderiaGlobal, cotizacionActual,
-                lastMonthData, prevMonthData, stockRotation, topCategoriasValor, lastMonth, prevMonth
+                lastMonthData, prevMonthData, stockRotation, topCategoriasValor, lastMonth, prevMonth,
+                momIndividual // Incluido para el nuevo panel
             };
         }
 
@@ -487,8 +487,8 @@
                             <!-- Gráficos de Evolución -->
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
                                 <div class="bg-white p-6 rounded-xl shadow-sm">
-                                    <h3 class="text-lg font-bold text-gray-800 mb-1">Comparativa Inmediata (MoM)</h3>
-                                    <p class="text-sm text-gray-500 mb-6">${diag.prevMonthString} vs ${diag.lastMonthString}</p>
+                                    <h3 class="text-lg font-bold text-gray-800 mb-1">Comparativa Individual (MoM)</h3>
+                                    <p class="text-sm text-gray-500 mb-6">${diag.prevMonthString} vs ${diag.lastMonthString} (Locales: Facturación / Depósito: Capital).</p>
                                     <div class="h-[300px] relative"><canvas id="chartMom"></canvas></div>
                                 </div>
                                 <div class="bg-white p-6 rounded-xl shadow-sm">
@@ -546,10 +546,10 @@
                                 </div>
                             </div>
 
-                            <!-- Diagnóstico Texto -->
+                            <!-- Diagnóstico Texto con NUEVO PANEL -->
                             <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm print-break-inside-avoid mt-6">
-                                <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
-                                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-slate-600"></i> Diagnóstico de Rendimiento
+                                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-slate-600"></i> Diagnóstico de Rendimiento General
                                 </h3>
                                 <p class="text-slate-700 leading-relaxed text-justify">
                                     A la fecha de cierre de <strong>${diag.lastMonthString}</strong>, la facturación conjunta de los locales se ubicó en <strong>${formatCurrency(diag.totalVentas)} (${formatUSD(diag.totalVentas / diag.cotizacionActual)})</strong>, lo que representa una variación del ${diag.percGrowth > 0 ? '+' : ''}${diag.percGrowth.toFixed(1)}% respecto al mes anterior. El nivel de cumplimiento de metas alcanzó el <strong>${diag.cumplimiento.toFixed(1)}%</strong>.
@@ -558,6 +558,26 @@
                                     <br><br>
                                     Patrimonialmente, el capital inmovilizado en mercadería (red global) está valorizado en <strong>${formatCurrency(diag.totalMercaderiaGlobal)}</strong> (<strong>${formatUSD(diag.totalMercaderiaGlobal / diag.cotizacionActual)}</strong> al tipo de cambio $${diag.cotizacionActual}).
                                 </p>
+
+                                <!-- NUEVO: Panel de Variación Individual (MoM) -->
+                                <div class="mt-6 pt-6 border-t border-slate-200">
+                                    <h4 class="text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide">Desempeño Individual de Puntos (${diag.prevMonthString} vs ${diag.lastMonthString})</h4>
+                                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                        ${diag.momIndividual.map(item => `
+                                            <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm relative overflow-hidden">
+                                                <div class="absolute top-0 left-0 w-1 h-full ${item.growth >= 0 ? 'bg-emerald-500' : 'bg-red-500'}"></div>
+                                                <p class="text-xs text-slate-500 font-bold mb-1">${item.nombre}</p>
+                                                <div class="flex items-baseline gap-2">
+                                                    <p class="text-2xl font-black ${item.growth >= 0 ? 'text-emerald-600' : 'text-red-600'}">
+                                                        ${item.growth > 0 ? '+' : ''}${item.growth.toFixed(1)}%
+                                                    </p>
+                                                    <i data-lucide="${item.growth >= 0 ? 'trending-up' : 'trending-down'}" class="w-4 h-4 ${item.growth >= 0 ? 'text-emerald-500' : 'text-red-500'}"></i>
+                                                </div>
+                                                <p class="text-[10px] text-slate-400 mt-1 uppercase font-semibold">${item.isDeposito ? 'Variación de Capital' : 'Variación de Ventas'}</p>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -650,7 +670,6 @@
                                     <button type="button" onclick="addStockRow()" class="text-sm bg-emerald-600 text-white px-3 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center gap-1 shadow-sm"><i data-lucide="plus-circle" class="w-4 h-4"></i> Fila</button>
                                 </div>
                                 
-                                <!-- Encabezados de columnas -->
                                 <div class="flex gap-2 mb-2 px-1 text-xs font-bold text-emerald-800 uppercase tracking-wider">
                                     <div class="flex-[2]">Categoría</div>
                                     <div class="flex-1 text-center">Unidades</div>
@@ -792,9 +811,10 @@
                 });
             }
 
-            const momLabels = Object.values(PUNTOS_VENTA);
-            const momPrevData = momLabels.map(pv => diag.prevMonthData.find(d => PUNTOS_VENTA[d.puntoVenta] === pv)?.ventas || 0);
-            const momLastData = momLabels.map(pv => diag.lastMonthData.find(d => PUNTOS_VENTA[d.puntoVenta] === pv)?.ventas || 0);
+            // NUEVO: Gráfico MoM Adaptado (Facturación para locales, Capital para Depósito)
+            const momLabels = diag.momIndividual.map(d => d.nombre);
+            const momPrevData = diag.momIndividual.map(d => d.valPrev);
+            const momLastData = diag.momIndividual.map(d => d.valCurrent);
 
             const ctxMom = document.getElementById('chartMom').getContext('2d');
             chartInstances.mom = new Chart(ctxMom, {
@@ -806,7 +826,23 @@
                         { label: diag.lastMonthString, data: momLastData, backgroundColor: '#3b82f6', borderRadius: 4 }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v/1000000 + 'M' } } } }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(c) {
+                                    const isDepo = c.label === 'Depósito';
+                                    const prefix = isDepo ? 'Capital: ' : 'Facturación: ';
+                                    return prefix + formatCurrency(c.raw);
+                                }
+                            }
+                        }
+                    }, 
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v/1000000 + 'M' } } } 
+                }
             });
 
             const yoyGrouped = {};
