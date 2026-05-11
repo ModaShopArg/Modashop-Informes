@@ -72,15 +72,13 @@
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ==============================================================================
-        // ¡PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE!
-        // ==============================================================================
         const firebaseConfig = {
-  apiKey: "AIzaSyB4X4-HY_QTD9_4LGO244mGJidMdSA7lrA",
-  authDomain: "tablero-valorizado-a6c2d.firebaseapp.com",
-  projectId: "tablero-valorizado-a6c2d",
-  storageBucket: "tablero-valorizado-a6c2d.firebasestorage.app",
-  messagingSenderId: "66788546050",
-  appId: "1:66788546050:web:e3b8a5fe79f3327b77b91b"
+            apiKey: "AIzaSyB4X4-HY_QTD9_4LGO244mGJidMdSA7lrA",
+            authDomain: "tablero-valorizado-a6c2d.firebaseapp.com",
+            projectId: "tablero-valorizado-a6c2d",
+            storageBucket: "tablero-valorizado-a6c2d.firebasestorage.app",
+            messagingSenderId: "66788546050",
+            appId: "1:66788546050:web:e3b8a5fe79f3327b77b91b"
         };
         // ==============================================================================
 
@@ -90,7 +88,7 @@
             auth = getAuth(app);
             db = getFirestore(app);
         } catch(e) {
-            console.error("Falta configurar Firebase. Revisa la línea 71 del código.", e);
+            console.error("Falta configurar Firebase.", e);
         }
 
         const appId = 'mi-tablero-ceo-empresa'; 
@@ -105,10 +103,11 @@
         const monthOrder = { 'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12 };
         const mesesList = Object.keys(monthOrder);
 
+        // ESTADO DEL FORMULARIO (Se elimina valorMercaderia ya que es automático)
         let formState = {
             mes: 'Enero', año: new Date().getFullYear().toString(), puntoVenta: 'concordia', cotizacionDolar: '',
-            ventas: '', valorMercaderia: '', objetivo: '', tickets: '', productosVendidos: '',
-            stock: [{ categoria: '', cantidad: '' }]
+            ventas: '', objetivo: '', tickets: '', productosVendidos: '',
+            stock: [{ categoria: '', cantidad: '', valor: '' }]
         };
 
         // --- AUTENTICACIÓN Y SINCRONIZACIÓN EN TIEMPO REAL ---
@@ -146,6 +145,34 @@
         const formatCurrency = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
         const formatUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
         const formatNumber = (val) => new Intl.NumberFormat('es-AR').format(val);
+        window.formatCurrency = formatCurrency; // Exportar para uso en los inputs
+
+        // NUEVO: Analizador inteligente para números pegados desde Excel (Formato Argentina)
+        window.parseInputNumber = (val) => {
+            if (!val) return 0;
+            let str = String(val).trim();
+            // Eliminar símbolos de moneda y espacios
+            str = str.replace(/[$$\s]/g, '');
+            
+            const lastComma = str.lastIndexOf(',');
+            const lastDot = str.lastIndexOf('.');
+            
+            if (lastComma > lastDot) {
+                // Ej: 1.234.567,89 (Puntos de miles, coma decimal)
+                str = str.replace(/\./g, '').replace(',', '.');
+            } else if (lastDot > lastComma && lastComma !== -1) {
+                // Ej: 1,234,567.89 (Comas de miles, punto decimal - Formato US)
+                str = str.replace(/,/g, '');
+            } else if (lastComma !== -1 && lastDot === -1) {
+                // Ej: 1234,89 (Coma decimal)
+                str = str.replace(',', '.');
+            } else if (lastDot !== -1 && lastComma === -1) {
+                // Ej: 1.234 (Punto de miles sin decimales)
+                str = str.replace(/\./g, '');
+            }
+            
+            return parseFloat(str) || 0;
+        };
 
         window.switchTab = (tab) => {
             activeTab = tab;
@@ -200,26 +227,44 @@
         };
 
         window.handleFormChange = (field, value) => { formState[field] = value; if (field === 'puntoVenta') render(); };
-        window.handleStockChange = (index, field, value) => { formState.stock[index][field] = value; };
-        window.addStockRow = () => { formState.stock.push({ categoria: '', cantidad: '' }); window.renderFormStockRows(); };
+        
+        window.handleStockChange = (index, field, value) => { 
+            formState.stock[index][field] = value; 
+            
+            // Calculo en vivo de la suma valorizada usando parseInputNumber
+            const suma = formState.stock.reduce((acc, item) => acc + window.parseInputNumber(item.valor), 0);
+            const sumEl = document.getElementById('stock-sum-display');
+            if(sumEl) sumEl.innerText = 'Total Automático: ' + formatCurrency(suma);
+        };
+        
+        window.addStockRow = () => { formState.stock.push({ categoria: '', cantidad: '', valor: '' }); window.renderFormStockRows(); };
         window.removeStockRow = (index) => { formState.stock.splice(index, 1); window.renderFormStockRows(); };
 
         window.submitForm = async (e) => {
             e.preventDefault();
-            if (!currentUser) return alert("Por favor, espera a que el sistema conecte con la nube. Asegúrate de haber pegado tus llaves de Firebase en el código.");
+            if (!currentUser) return alert("Por favor, espera a que el sistema conecte con la nube.");
 
             const pv = formState.puntoVenta;
+            
+            // Limpiamos el stock de filas vacias y aplicamos el parseo
+            const stockLimpio = formState.stock.filter(s => s.categoria && (s.cantidad !== '' || s.valor !== '')).map(s => ({
+                categoria: s.categoria, 
+                cantidad: window.parseInputNumber(s.cantidad),
+                valor: window.parseInputNumber(s.valor)
+            }));
+
+            // CÁLCULO AUTOMÁTICO DE LA MERCADERIA VALORIZADA
+            const totalMercaderiaCalculado = stockLimpio.reduce((acc, item) => acc + item.valor, 0);
+
             const newRecord = {
                 mes: formState.mes, año: formState.año, puntoVenta: pv,
-                cotizacionDolar: Number(formState.cotizacionDolar) || 1,
-                valorMercaderia: Number(formState.valorMercaderia) || 0,
-                ventas: pv === 'deposito' ? 0 : (Number(formState.ventas) || 0),
-                objetivo: pv === 'deposito' ? 0 : (Number(formState.objetivo) || 0),
-                tickets: pv === 'deposito' ? 0 : (Number(formState.tickets) || 0),
-                productosVendidos: pv === 'deposito' ? 0 : (Number(formState.productosVendidos) || 0),
-                stock: formState.stock.filter(s => s.categoria && s.cantidad !== '').map(s => ({
-                    categoria: s.categoria, cantidad: Number(s.cantidad)
-                }))
+                cotizacionDolar: window.parseInputNumber(formState.cotizacionDolar) || 1,
+                valorMercaderia: totalMercaderiaCalculado, // Valor generado automáticamente
+                ventas: pv === 'deposito' ? 0 : window.parseInputNumber(formState.ventas),
+                objetivo: pv === 'deposito' ? 0 : window.parseInputNumber(formState.objetivo),
+                tickets: pv === 'deposito' ? 0 : window.parseInputNumber(formState.tickets),
+                productosVendidos: pv === 'deposito' ? 0 : window.parseInputNumber(formState.productosVendidos),
+                stock: stockLimpio
             };
             
             const docId = Date.now().toString(); 
@@ -227,8 +272,9 @@
             
             await setDoc(docRef, newRecord);
             
-            formState.ventas = ''; formState.valorMercaderia = ''; formState.objetivo = ''; 
-            formState.tickets = ''; formState.productosVendidos = ''; formState.stock = [{ categoria: '', cantidad: '' }];
+            // Limpiamos el formulario después de guardar
+            formState.ventas = ''; formState.objetivo = ''; 
+            formState.tickets = ''; formState.productosVendidos = ''; formState.stock = [{ categoria: '', cantidad: '', valor: '' }];
             
             window.switchTab('historial');
         };
@@ -236,18 +282,28 @@
         window.renderFormStockRows = () => {
             const container = document.getElementById('stock-rows-container');
             if(!container) return;
+            
             container.innerHTML = formState.stock.map((item, idx) => `
-                <div class="flex gap-3 items-center">
+                <div class="flex gap-2 items-center">
+                    <div class="flex-[2]">
+                        <input type="text" placeholder="Ej: Línea Blanca" class="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required />
+                    </div>
                     <div class="flex-1">
-                        <input type="text" placeholder="Categoría (Ej: Línea Blanca)" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required />
+                        <input type="text" inputmode="decimal" placeholder="Cant." class="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-center text-sm" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required />
                     </div>
-                    <div class="w-32">
-                        <input type="number" step="any" placeholder="Unidades" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-center" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required />
+                    <div class="flex-[1.5] relative">
+                        <span class="absolute left-2.5 top-2.5 text-gray-500 font-bold text-sm">$</span>
+                        <input type="text" inputmode="decimal" placeholder="Pegar Excel..." class="w-full pl-6 p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-medium" value="${item.valor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required />
                     </div>
-                    ${formState.stock.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : ''}
+                    ${formState.stock.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : '<div class="w-9"></div>'}
                 </div>
             `).join('');
             lucide.createIcons();
+            
+            // Actualizar la suma inicial visible
+            const suma = formState.stock.reduce((acc, item) => acc + window.parseInputNumber(item.valor), 0);
+            const sumEl = document.getElementById('stock-sum-display');
+            if(sumEl) sumEl.innerText = 'Total Automático: ' + formatCurrency(suma);
         };
 
         function getDiagnosticData() {
@@ -272,6 +328,9 @@
 
             let totalVentas = 0, totalObjetivo = 0, totalTickets = 0, totalProductos = 0;
             let totalMercaderiaGlobal = 0, cotizacionActual = 1;
+            
+            // Para el gráfico de valorización por categoría
+            const capitalPorCategoria = {};
 
             lastMonthData.forEach(d => {
                 totalMercaderiaGlobal += (Number(d.valorMercaderia) || 0);
@@ -282,6 +341,17 @@
                     totalObjetivo += d.objetivo;
                     totalTickets += d.tickets;
                     totalProductos += d.productosVendidos;
+                }
+                
+                // Extraer valor de las categorías
+                if (d.stock) {
+                    d.stock.forEach(item => {
+                        const val = Number(item.valor) || 0;
+                        if(val > 0) {
+                            if (!capitalPorCategoria[item.categoria]) capitalPorCategoria[item.categoria] = 0;
+                            capitalPorCategoria[item.categoria] += val;
+                        }
+                    });
                 }
             });
 
@@ -314,12 +384,17 @@
                 });
             });
             stockRotation = stockRotation.sort((a, b) => a.variacion - b.variacion).slice(0, 5);
+            
+            // Ordenar categorías por mayor valor
+            const topCategoriasValor = Object.keys(capitalPorCategoria)
+                .map(cat => ({ categoria: cat, valor: capitalPorCategoria[cat] }))
+                .sort((a, b) => b.valor - a.valor);
 
             return {
                 lastMonthString: `${lastMonth} ${lastYear}`, prevMonthString: prevMonth ? `${prevMonth} ${prevYear}` : '-',
                 totalVentas, percGrowth, cumplimiento, ticketPromedio, unidadesTicket,
                 bestLocalName, totalStockActual, totalMercaderiaGlobal, cotizacionActual,
-                lastMonthData, prevMonthData, stockRotation, lastMonth, prevMonth
+                lastMonthData, prevMonthData, stockRotation, topCategoriasValor, lastMonth, prevMonth
             };
         }
 
@@ -380,7 +455,7 @@
                                 </div>
                             </div>
 
-                            <!-- Nuevos Gráficos de Composición -->
+                            <!-- Gráficos de Composición -->
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
                                 <div class="bg-white p-6 rounded-xl shadow-sm">
                                     <h3 class="text-lg font-bold text-gray-800 mb-1">Composición de Ventas</h3>
@@ -389,9 +464,24 @@
                                 </div>
                                 <div class="bg-white p-6 rounded-xl shadow-sm">
                                     <h3 class="text-lg font-bold text-gray-800 mb-1">Distribución del Capital</h3>
-                                    <p class="text-sm text-gray-500 mb-6">Distribución del valor de la mercadería.</p>
+                                    <p class="text-sm text-gray-500 mb-6">Distribución del valor de la mercadería por sucursal.</p>
                                     <div class="h-[250px] relative"><canvas id="chartCapitalMix"></canvas></div>
                                 </div>
+                            </div>
+
+                            <!-- Gráfico de Capital por Categoría -->
+                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 print-break-inside-avoid mt-6">
+                                <h3 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-emerald-600"></i> Capital por Categoría de Producto</h3>
+                                <p class="text-sm text-gray-500 mb-6">Valorización del inventario desglosada por rubro a nivel global (${diag.lastMonthString}).</p>
+                                
+                                ${diag.topCategoriasValor.length > 0 ? `
+                                    <div class="h-[300px] relative"><canvas id="chartCapitalCat"></canvas></div>
+                                ` : `
+                                    <div class="text-center py-10 text-gray-400">
+                                        <i data-lucide="info" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                                        <p>Para ver este gráfico, ingresa el valor ($) de cada categoría en la carga mensual de Stock.</p>
+                                    </div>
+                                `}
                             </div>
 
                             <!-- Gráficos de Evolución -->
@@ -516,59 +606,59 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-emerald-700 mb-2">Cotización Dólar</label>
-                                    <input type="number" step="any" placeholder="Ej: 1050" class="w-full p-2.5 border border-emerald-300 rounded-lg text-emerald-800 outline-none" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required>
+                                    <input type="text" inputmode="decimal" placeholder="Ej: 1050,50" class="w-full p-2.5 border border-emerald-300 rounded-lg text-emerald-800 outline-none" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required>
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 ${!isDeposito ? 'md:grid-cols-2' : ''} gap-4">
-                                ${!isDeposito ? `
+                            ${!isDeposito ? `
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="bg-blue-50 p-6 rounded-xl border border-blue-100">
                                     <label class="block text-lg font-semibold text-blue-900 mb-1 flex items-center gap-2"><i data-lucide="trending-up" class="w-5 h-5"></i> Facturación Real</label>
                                     <div class="relative mt-4">
                                         <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
-                                        <input type="number" step="any" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required>
+                                        <input type="text" inputmode="decimal" placeholder="Pegar de Excel..." class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required>
                                     </div>
                                 </div>
-                                ` : ''}
                                 
-                                <div class="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
-                                    <label class="block text-lg font-semibold text-indigo-900 mb-1 flex items-center gap-2"><i data-lucide="archive" class="w-5 h-5"></i> Total Mercadería Valorizada</label>
+                                <div class="bg-amber-50 p-6 rounded-xl border border-amber-100">
+                                    <label class="block text-lg font-semibold text-amber-900 mb-1 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5"></i> Objetivo de Venta (Meta)</label>
                                     <div class="relative mt-4">
                                         <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
-                                        <input type="number" step="any" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.valorMercaderia}" onchange="handleFormChange('valorMercaderia', this.value)" required>
+                                        <input type="text" inputmode="decimal" placeholder="Pegar de Excel..." class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required>
                                     </div>
                                 </div>
-
-                                ${!isDeposito ? `
-                                <div class="bg-amber-50 p-6 rounded-xl border border-amber-100 md:col-span-2">
-                                    <label class="block text-lg font-semibold text-amber-900 mb-1 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5"></i> Objetivo de Venta (Meta)</label>
-                                    <div class="relative mt-4 max-w-md">
-                                        <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
-                                        <input type="number" step="any" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required>
-                                    </div>
-                                </div>
-                                ` : ''}
                             </div>
-
-                            ${!isDeposito ? `
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-purple-50 p-6 rounded-xl border border-purple-100">
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-purple-50 p-6 rounded-xl border border-purple-100 mt-4">
                                 <div>
                                     <label class="block text-sm font-semibold text-purple-900 mb-2">Total Tickets</label>
-                                    <input type="number" step="any" class="w-full p-3 rounded-lg border outline-none" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required>
+                                    <input type="text" inputmode="numeric" placeholder="Ej: 450" class="w-full p-3 rounded-lg border outline-none" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-purple-900 mb-2">Unidades Vendidas</label>
-                                    <input type="number" step="any" class="w-full p-3 rounded-lg border outline-none" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required>
+                                    <input type="text" inputmode="numeric" placeholder="Ej: 850" class="w-full p-3 rounded-lg border outline-none" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required>
                                 </div>
                             </div>
                             ` : ''}
 
-                            <div class="bg-emerald-50 p-6 rounded-xl border border-emerald-100">
+                            <div class="bg-emerald-50 p-6 rounded-xl border border-emerald-100 ${!isDeposito ? 'mt-4' : ''}">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h3 class="text-lg font-semibold text-emerald-900 flex items-center gap-2"><i data-lucide="refresh-ccw" class="w-5 h-5"></i> Stock Remanente</h3>
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-emerald-900 flex items-center gap-2"><i data-lucide="refresh-ccw" class="w-5 h-5"></i> Stock Remanente y Valorización</h3>
+                                        <p id="stock-sum-display" class="text-lg font-extrabold text-emerald-700 mt-2 bg-emerald-100 inline-block px-3 py-1 rounded">Total Automático: $0</p>
+                                    </div>
                                     <button type="button" onclick="addStockRow()" class="text-sm bg-emerald-600 text-white px-3 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center gap-1 shadow-sm"><i data-lucide="plus-circle" class="w-4 h-4"></i> Fila</button>
                                 </div>
-                                <div id="stock-rows-container" class="space-y-3 mt-4"></div>
+                                
+                                <!-- Encabezados de columnas -->
+                                <div class="flex gap-2 mb-2 px-1 text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                                    <div class="flex-[2]">Categoría</div>
+                                    <div class="flex-1 text-center">Unidades</div>
+                                    <div class="flex-[1.5]">Valor Total ($)</div>
+                                    <div class="w-9"></div>
+                                </div>
+
+                                <div id="stock-rows-container" class="space-y-3"></div>
                             </div>
 
                             <div class="pt-4 flex justify-end">
@@ -585,7 +675,6 @@
                         <div class="p-6 border-b border-gray-100 bg-slate-50 flex justify-between items-center flex-wrap gap-4">
                             <h2 class="text-xl font-bold text-gray-800">Historial en la Nube</h2>
                             
-                            <!-- Botones de Backup -->
                             <div class="flex items-center gap-3">
                                 <label class="cursor-pointer bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition shadow-sm font-medium flex items-center gap-2 text-sm">
                                     <i data-lucide="upload" class="w-4 h-4"></i> Restaurar / Subir JSON
@@ -647,6 +736,7 @@
             if (chartInstances.yoy) chartInstances.yoy.destroy();
             if (chartInstances.ventasMix) chartInstances.ventasMix.destroy();
             if (chartInstances.capitalMix) chartInstances.capitalMix.destroy();
+            if (chartInstances.capitalCat) chartInstances.capitalCat.destroy();
 
             const labelsLocales = Object.keys(PUNTOS_VENTA).filter(k => k !== 'deposito').map(k => PUNTOS_VENTA[k]);
             const dataVentasMix = Object.keys(PUNTOS_VENTA).filter(k => k !== 'deposito').map(k => {
@@ -679,6 +769,28 @@
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: function(c) { return ' ' + formatCurrency(c.raw); } } } } }
             });
+
+            // GRÁFICO: Capital por Categoría (Barras Horizontales)
+            if (diag.topCategoriasValor.length > 0) {
+                const catLabels = diag.topCategoriasValor.map(c => c.categoria);
+                const catData = diag.topCategoriasValor.map(c => c.valor);
+                
+                const ctxCat = document.getElementById('chartCapitalCat').getContext('2d');
+                chartInstances.capitalCat = new Chart(ctxCat, {
+                    type: 'bar',
+                    data: {
+                        labels: catLabels,
+                        datasets: [{ label: 'Valorización (ARS)', data: catData, backgroundColor: '#10b981', borderRadius: 4 }]
+                    },
+                    options: { 
+                        indexAxis: 'y',
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + formatCurrency(c.raw); } } } }, 
+                        scales: { x: { beginAtZero: true, ticks: { callback: v => '$' + v/1000000 + 'M' } } } 
+                    }
+                });
+            }
 
             const momLabels = Object.values(PUNTOS_VENTA);
             const momPrevData = momLabels.map(pv => diag.prevMonthData.find(d => PUNTOS_VENTA[d.puntoVenta] === pv)?.ventas || 0);
