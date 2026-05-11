@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CompanyAnalytics Pro - Panel Ejecutivo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js para los gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Íconos Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* Estilos específicos para impresión */
+        @media print {
+            .print-hidden { display: none !important; }
+            body { background-color: white !important; }
+            .print-break-inside-avoid { break-inside: avoid; }
+            .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0; }
+        }
+    </style>
+</head>
+<body class="bg-fuchsia-100 font-sans text-gray-900 pb-12">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm print-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-center relative">
+            <!-- Reemplaza el src con la ruta o URL de tu logo real -->
+            <img src="https://placehold.co/300x80?text=LOGO+EMPRESA" alt="Logo de la Empresa" class="h-16 object-contain" />
+            
+            <!-- Botón Exportar PDF (Esquina Superior Derecha) -->
+            <div id="export-btn-container" class="absolute right-4 sm:right-8 top-1/2 transform -translate-y-1/2" style="display: none;">
+                <button onclick="window.print()" class="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition shadow-sm font-medium">
+                    <i data-lucide="printer" class="w-4 h-4"></i> <span class="hidden sm:inline">Exportar PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navegación de Pestañas -->
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-10 print-hidden shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+            <!-- Indicador de Nube -->
+            <div id="cloud-status" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-amber-500 flex items-center gap-1">
+                <i data-lucide="cloud-off" class="w-4 h-4"></i> Conectando...
+            </div>
+
+            <div class="flex space-x-8 justify-center" id="tab-navigation">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition border-blue-600 text-blue-600">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Resumen General
+                </button>
+                <button onclick="switchTab('ingreso')" id="tab-ingreso" class="flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition border-transparent text-gray-500 hover:text-gray-700">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Carga Mensual
+                </button>
+                <button onclick="switchTab('historial')" id="tab-historial" class="flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition border-transparent text-gray-500 hover:text-gray-700">
+                    <i data-lucide="store" class="w-4 h-4"></i> Historial
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8" id="main-content">
+        <!-- El contenido se inyecta por JS -->
+    </main>
+
+    <!-- MÓDULO JS CON FIREBASE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==============================================================================
+        // ¡PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE!
+        // Reemplaza todo el bloque const firebaseConfig con el que te dio la página de Firebase
+        // ==============================================================================
+        const firebaseConfig = {
+  apiKey: "AIzaSyB4X4-HY_QTD9_4LGO244mGJidMdSA7lrA",
+  authDomain: "tablero-valorizado-a6c2d.firebaseapp.com",
+  projectId: "tablero-valorizado-a6c2d",
+  storageBucket: "tablero-valorizado-a6c2d.firebasestorage.app",
+  messagingSenderId: "66788546050",
+  appId: "1:66788546050:web:e3b8a5fe79f3327b77b91b"
+        };
+        // ==============================================================================
+
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch(e) {
+            console.error("Falta configurar Firebase. Revisa la línea 71 del código.", e);
+        }
+
+        const appId = 'mi-tablero-ceo-empresa'; // ID único para tu colección de datos
+
+        // --- VARIABLES GLOBALES ---
+        let currentUser = null;
+        let appData = [];
+        let activeTab = 'dashboard';
+        let chartInstances = {}; 
+
+        const PUNTOS_VENTA = { deposito: 'Depósito', concordia: 'Local Concordia', chajari: 'Local Chajarí', tendens: 'Tendens' };
+        const monthOrder = { 'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12 };
+        const mesesList = Object.keys(monthOrder);
+
+        let formState = {
+            mes: 'Enero', año: new Date().getFullYear().toString(), puntoVenta: 'concordia', cotizacionDolar: '',
+            ventas: '', valorMercaderia: '', objetivo: '', tickets: '', productosVendidos: '',
+            stock: [{ categoria: '', cantidad: '' }]
+        };
+
+        // --- AUTENTICACIÓN Y SINCRONIZACIÓN EN TIEMPO REAL ---
+        if (auth) {
+            signInAnonymously(auth).catch((error) => console.error("Error de conexión:", error));
+
+            onAuthStateChanged(auth, (user) => {
+                currentUser = user;
+                const statusEl = document.getElementById('cloud-status');
+                
+                if (user) {
+                    statusEl.innerHTML = '<i data-lucide="cloud" class="w-4 h-4"></i> Nube Activa';
+                    statusEl.className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-emerald-600 flex items-center gap-1";
+                    lucide.createIcons();
+
+                    const recordsRef = collection(db, 'artifacts', appId, 'public', 'data');
+                    onSnapshot(recordsRef, (snapshot) => {
+                        appData = [];
+                        snapshot.forEach(documento => {
+                            appData.push({ dbId: documento.id, ...documento.data() });
+                        });
+                        render();
+                    }, (error) => {
+                        console.error("Error sincronizando:", error);
+                    });
+                } else {
+                    statusEl.innerHTML = '<i data-lucide="cloud-off" class="w-4 h-4"></i> Desconectado';
+                    statusEl.className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-red-500 flex items-center gap-1";
+                    lucide.createIcons();
+                }
+            });
+        }
+
+
+        // --- UTILIDADES ---
+        const formatCurrency = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
+        const formatUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+        const formatNumber = (val) => new Intl.NumberFormat('es-AR').format(val);
+
+        window.switchTab = (tab) => {
+            activeTab = tab;
+            ['dashboard', 'ingreso', 'historial'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tab) btn.className = "flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition border-blue-600 text-blue-600";
+                else btn.className = "flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition border-transparent text-gray-500 hover:text-gray-700";
+            });
+            render();
+        };
+
+        window.exportBackup = () => {
+            const dataStr = JSON.stringify(appData);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = `Backup_CompanyAnalytics_${new Date().toISOString().slice(0,10)}.json`;
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        };
+
+        window.importBackup = async (event) => {
+            if (!currentUser) return alert('Debes esperar a que la nube esté conectada.');
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        alert("Sincronizando registros con la nube... (Esto puede tomar unos segundos)");
+                        for (const record of importedData) {
+                            const docId = record.dbId || Date.now().toString() + Math.floor(Math.random() * 1000).toString();
+                            const docRef = doc(db, 'artifacts', appId, 'public', docId);
+                            await setDoc(docRef, record);
+                        }
+                        alert('¡Datos restaurados y subidos a la nube exitosamente!');
+                    } else { alert('El archivo no tiene el formato correcto.'); }
+                } catch (error) { alert('Error al leer el archivo. Asegúrate de que sea un .json válido.'); }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        };
+
+        window.deleteRecord = async (dbId) => {
+            if (!currentUser) return alert('Conexión a la nube requerida para eliminar.');
+            if(confirm('¿Seguro que deseas eliminar este registro de la base de datos general?')) {
+                const docRef = doc(db, 'artifacts', appId, 'public', dbId);
+                await deleteDoc(docRef);
+            }
+        };
+
+        window.handleFormChange = (field, value) => { formState[field] = value; if (field === 'puntoVenta') render(); };
+        window.handleStockChange = (index, field, value) => { formState.stock[index][field] = value; };
+        window.addStockRow = () => { formState.stock.push({ categoria: '', cantidad: '' }); window.renderFormStockRows(); };
+        window.removeStockRow = (index) => { formState.stock.splice(index, 1); window.renderFormStockRows(); };
+
+        window.submitForm = async (e) => {
+            e.preventDefault();
+            if (!currentUser) return alert("Por favor, espera a que el sistema conecte con la nube. Asegurate de haber pegado tus llaves de Firebase en el código.");
+
+            const pv = formState.puntoVenta;
+            const newRecord = {
+                mes: formState.mes, año: formState.año, puntoVenta: pv,
+                cotizacionDolar: Number(formState.cotizacionDolar) || 1,
+                valorMercaderia: Number(formState.valorMercaderia) || 0,
+                ventas: pv === 'deposito' ? 0 : (Number(formState.ventas) || 0),
+                objetivo: pv === 'deposito' ? 0 : (Number(formState.objetivo) || 0),
+                tickets: pv === 'deposito' ? 0 : (Number(formState.tickets) || 0),
+                productosVendidos: pv === 'deposito' ? 0 : (Number(formState.productosVendidos) || 0),
+                stock: formState.stock.filter(s => s.categoria && s.cantidad !== '').map(s => ({
+                    categoria: s.categoria, cantidad: Number(s.cantidad)
+                }))
+            };
+            
+            const docId = Date.now().toString(); 
+            const docRef = doc(db, 'artifacts', appId, 'public', docId);
+            
+            await setDoc(docRef, newRecord);
+            
+            formState.ventas = ''; formState.valorMercaderia = ''; formState.objetivo = ''; 
+            formState.tickets = ''; formState.productosVendidos = ''; formState.stock = [{ categoria: '', cantidad: '' }];
+            
+            window.switchTab('historial');
+        };
+
+        window.renderFormStockRows = () => {
+            const container = document.getElementById('stock-rows-container');
+            if(!container) return;
+            container.innerHTML = formState.stock.map((item, idx) => `
+                <div class="flex gap-3 items-center">
+                    <div class="flex-1">
+                        <input type="text" placeholder="Categoría (Ej: Línea Blanca)" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required />
+                    </div>
+                    <div class="w-32">
+                        <input type="number" placeholder="Unidades" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-center" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required />
+                    </div>
+                    ${formState.stock.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : ''}
+                </div>
+            `).join('');
+            lucide.createIcons();
+        };
+
+        function getDiagnosticData() {
+            if (appData.length === 0) return null;
+
+            const uniquePeriods = Array.from(new Set(appData.map(d => `${d.año}-${d.mes}`))).sort((a, b) => {
+                const [yearA, monthA] = a.split('-'); const [yearB, monthB] = b.split('-');
+                if (yearA !== yearB) return Number(yearA) - Number(yearB);
+                return monthOrder[monthA] - monthOrder[monthB];
+            });
+
+            if (uniquePeriods.length === 0) return null;
+
+            const lastPeriodStr = uniquePeriods[uniquePeriods.length - 1];
+            const prevPeriodStr = uniquePeriods.length > 1 ? uniquePeriods[uniquePeriods.length - 2] : null;
+
+            const [lastYear, lastMonth] = lastPeriodStr.split('-');
+            const [prevYear, prevMonth] = prevPeriodStr ? prevPeriodStr.split('-') : [null, null];
+
+            const lastMonthData = appData.filter(d => d.mes === lastMonth && d.año === lastYear);
+            const prevMonthData = appData.filter(d => d.mes === prevMonth && d.año === prevYear);
+
+            let totalVentas = 0, totalObjetivo = 0, totalTickets = 0, totalProductos = 0;
+            let totalMercaderiaGlobal = 0, cotizacionActual = 1;
+
+            lastMonthData.forEach(d => {
+                totalMercaderiaGlobal += (Number(d.valorMercaderia) || 0);
+                if (d.cotizacionDolar > 1) cotizacionActual = d.cotizacionDolar;
+
+                if (d.puntoVenta !== 'deposito') {
+                    totalVentas += d.ventas; 
+                    totalObjetivo += d.objetivo;
+                    totalTickets += d.tickets;
+                    totalProductos += d.productosVendidos;
+                }
+            });
+
+            const totalVentasPrev = prevMonthData.filter(d => d.puntoVenta !== 'deposito').reduce((acc, curr) => acc + curr.ventas, 0);
+            const percGrowth = totalVentasPrev > 0 ? ((totalVentas - totalVentasPrev) / totalVentasPrev) * 100 : 0;
+
+            const cumplimiento = totalObjetivo > 0 ? (totalVentas / totalObjetivo) * 100 : 0;
+            const ticketPromedio = totalTickets > 0 ? totalVentas / totalTickets : 0;
+            const unidadesTicket = totalTickets > 0 ? totalProductos / totalTickets : 0;
+
+            const bestLocalData = lastMonthData.filter(d => d.puntoVenta !== 'deposito').sort((a, b) => b.ventas - a.ventas)[0];
+            const bestLocalName = bestLocalData ? PUNTOS_VENTA[bestLocalData.puntoVenta] : '-';
+            const totalStockActual = lastMonthData.reduce((acc, row) => acc + row.stock.reduce((s, item) => s + item.cantidad, 0), 0);
+
+            const prevStockMap = {};
+            prevMonthData.forEach(row => {
+                row.stock.forEach(item => { prevStockMap[`${row.puntoVenta}-${item.categoria}`] = item.cantidad; });
+            });
+
+            let stockRotation = [];
+            lastMonthData.forEach(row => {
+                row.stock.forEach(item => {
+                    const cantAnt = prevStockMap[`${row.puntoVenta}-${item.categoria}`] || 0;
+                    stockRotation.push({
+                        sucursal: PUNTOS_VENTA[row.puntoVenta],
+                        categoria: item.categoria,
+                        actual: item.cantidad,
+                        variacion: item.cantidad - cantAnt
+                    });
+                });
+            });
+            stockRotation = stockRotation.sort((a, b) => a.variacion - b.variacion).slice(0, 5);
+
+            return {
+                lastMonthString: `${lastMonth} ${lastYear}`, prevMonthString: prevMonth ? `${prevMonth} ${prevYear}` : '-',
+                totalVentas, percGrowth, cumplimiento, ticketPromedio, unidadesTicket,
+                bestLocalName, totalStockActual, totalMercaderiaGlobal, cotizacionActual,
+                lastMonthData, prevMonthData, stockRotation, lastMonth, prevMonth
+            };
+        }
+
+        function render() {
+            const main = document.getElementById('main-content');
+            const exportBtn = document.getElementById('export-btn-container');
+            
+            if (exportBtn) exportBtn.style.display = 'none';
+            
+            if (activeTab === 'dashboard') {
+                const diag = getDiagnosticData();
+                if (!diag) {
+                    main.innerHTML = `
+                        <div class="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-100 max-w-2xl mx-auto mt-10">
+                            <i data-lucide="bar-chart-2" class="mx-auto w-16 h-16 text-fuchsia-400 mb-4"></i>
+                            <h3 class="text-2xl font-bold text-gray-800">El tablero está listo</h3>
+                            <p class="text-gray-500 mt-2">La base de datos en la nube está conectada y vacía.<br>Ve a la pestaña <strong>Carga Mensual</strong> para registrar tu facturación.</p>
+                        </div>`;
+                } else {
+                    if (exportBtn) exportBtn.style.display = 'block';
+                    main.innerHTML = `
+                        <div class="space-y-6 animate-in fade-in duration-500">
+                            <!-- KPIs -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                                <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4 border-l-4 border-emerald-500">
+                                    <div class="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><i data-lucide="trending-up" class="w-6 h-6"></i></div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 font-medium">Ventas Locales (${diag.lastMonthString})</p>
+                                        <h3 class="text-2xl font-bold text-gray-800">${formatCurrency(diag.totalVentas)}</h3>
+                                        <p class="text-xs font-medium text-emerald-600 mt-0.5">${formatUSD(diag.totalVentas / diag.cotizacionActual)}</p>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4 border-l-4 border-indigo-500">
+                                    <div class="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><i data-lucide="archive" class="w-6 h-6"></i></div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 font-medium">Capital Mercadería</p>
+                                        <h3 class="text-2xl font-bold text-gray-800">${formatCurrency(diag.totalMercaderiaGlobal)}</h3>
+                                        <p class="text-xs font-medium text-indigo-600 mt-0.5">${formatUSD(diag.totalMercaderiaGlobal / diag.cotizacionActual)}</p>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4 border-l-4 border-amber-500">
+                                    <div class="p-3 bg-amber-100 text-amber-600 rounded-lg"><i data-lucide="shopping-cart" class="w-6 h-6"></i></div>
+                                    <div>
+                                        <p class="text-sm text-gray-500 font-medium">Ticket Promedio</p>
+                                        <h3 class="text-2xl font-bold text-gray-800">${formatCurrency(diag.ticketPromedio)}</h3>
+                                        <p class="text-xs font-medium text-amber-600 mt-0.5">${formatUSD(diag.ticketPromedio / diag.cotizacionActual)}</p>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-5 rounded-xl shadow-sm flex items-center gap-4 border-l-4 border-blue-500">
+                                    <div class="p-3 bg-blue-100 text-blue-600 rounded-lg"><i data-lucide="target" class="w-6 h-6"></i></div>
+                                    <div class="w-full">
+                                        <p class="text-sm text-gray-500 font-medium">Cumplimiento Meta</p>
+                                        <h3 class="text-2xl font-bold text-gray-800">${diag.cumplimiento.toFixed(1)}%</h3>
+                                        <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                            <div class="h-1.5 rounded-full ${diag.cumplimiento >= 100 ? 'bg-green-500' : 'bg-blue-500'}" style="width: ${Math.min(diag.cumplimiento, 100)}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Nuevos Gráficos de Composición -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
+                                <div class="bg-white p-6 rounded-xl shadow-sm">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-1">Composición de Ventas</h3>
+                                    <p class="text-sm text-gray-500 mb-6">Aporte de cada local a la facturación total.</p>
+                                    <div class="h-[250px] relative"><canvas id="chartVentasMix"></canvas></div>
+                                </div>
+                                <div class="bg-white p-6 rounded-xl shadow-sm">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-1">Distribución del Capital</h3>
+                                    <p class="text-sm text-gray-500 mb-6">Distribución del valor de la mercadería.</p>
+                                    <div class="h-[250px] relative"><canvas id="chartCapitalMix"></canvas></div>
+                                </div>
+                            </div>
+
+                            <!-- Gráficos de Evolución -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
+                                <div class="bg-white p-6 rounded-xl shadow-sm">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-1">Comparativa Inmediata (MoM)</h3>
+                                    <p class="text-sm text-gray-500 mb-6">${diag.prevMonthString} vs ${diag.lastMonthString}</p>
+                                    <div class="h-[300px] relative"><canvas id="chartMom"></canvas></div>
+                                </div>
+                                <div class="bg-white p-6 rounded-xl shadow-sm">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-1">Evolución de Ventas (YoY)</h3>
+                                    <p class="text-sm text-gray-500 mb-6">Comparación global de facturación de Locales.</p>
+                                    <div class="h-[300px] relative"><canvas id="chartYoy"></canvas></div>
+                                </div>
+                            </div>
+
+                            <!-- Operativa -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
+                                <div class="bg-white p-6 rounded-xl shadow-sm">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2"><i data-lucide="refresh-ccw" class="w-5 h-5"></i> Análisis de Rotación</h3>
+                                    <p class="text-sm text-gray-500 mb-6">Categorías con mayor salida de inventario este mes.</p>
+                                    <div class="space-y-4">
+                                        ${diag.stockRotation.length > 0 ? diag.stockRotation.map(item => `
+                                            <div class="flex justify-between items-center border-b border-gray-50 pb-3">
+                                                <div>
+                                                    <h4 class="font-semibold text-gray-800 text-sm">${item.categoria}</h4>
+                                                    <span class="text-xs text-gray-500">${item.sucursal}</span>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="font-bold ${item.variacion < 0 ? 'text-green-600' : 'text-gray-600'}">
+                                                        ${item.variacion < 0 ? 'Salieron ' : 'Ingresaron '} ${Math.abs(item.variacion)} u.
+                                                    </div>
+                                                    <div class="text-xs text-gray-400">Quedan ${item.actual} disp.</div>
+                                                </div>
+                                            </div>
+                                        `).join('') : '<p class="text-sm text-gray-400">No hay historial suficiente.</p>'}
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-6 rounded-xl shadow-sm">
+                                    <h3 class="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5"></i> Cumplimiento por Local</h3>
+                                    <p class="text-sm text-gray-500 mb-6">Metas vs Logrado durante ${diag.lastMonthString}.</p>
+                                    <div class="space-y-5 mt-4">
+                                        ${diag.lastMonthData.filter(d => d.puntoVenta !== 'deposito').map(row => {
+                                            const perc = row.objetivo > 0 ? (row.ventas / row.objetivo) * 100 : 0;
+                                            return `
+                                            <div>
+                                                <div class="flex justify-between text-sm mb-1">
+                                                    <span class="font-semibold text-gray-700">${PUNTOS_VENTA[row.puntoVenta]}</span>
+                                                    <span class="font-bold text-gray-900">${perc.toFixed(1)}%</span>
+                                                </div>
+                                                <div class="w-full bg-gray-100 rounded-full h-2">
+                                                    <div class="h-2 rounded-full ${perc >= 100 ? 'bg-green-500' : perc >= 80 ? 'bg-amber-400' : 'bg-red-500'}" style="width: ${Math.min(perc, 100)}%"></div>
+                                                </div>
+                                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                                    <span>Real: ${formatCurrency(row.ventas)}</span>
+                                                    <span>Meta: ${formatCurrency(row.objetivo)}</span>
+                                                </div>
+                                            </div>`;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Diagnóstico Texto -->
+                            <div class="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm print-break-inside-avoid mt-6">
+                                <h3 class="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                    <i data-lucide="file-spreadsheet" class="w-5 h-5 text-slate-600"></i> Diagnóstico de Rendimiento
+                                </h3>
+                                <p class="text-slate-700 leading-relaxed text-justify">
+                                    A la fecha de cierre de <strong>${diag.lastMonthString}</strong>, la facturación conjunta de los locales se ubicó en <strong>${formatCurrency(diag.totalVentas)} (${formatUSD(diag.totalVentas / diag.cotizacionActual)})</strong>, lo que representa una variación del ${diag.percGrowth > 0 ? '+' : ''}${diag.percGrowth.toFixed(1)}% respecto al mes anterior. El nivel de cumplimiento de metas alcanzó el <strong>${diag.cumplimiento.toFixed(1)}%</strong>.
+                                    <br><br>
+                                    Registramos un <strong>Ticket Promedio de ${formatCurrency(diag.ticketPromedio)} (${formatUSD(diag.ticketPromedio / diag.cotizacionActual)})</strong>, con una extracción de ${diag.unidadesTicket.toFixed(1)} unidades/operación. El líder en ventas fue <strong>${diag.bestLocalName}</strong>.
+                                    <br><br>
+                                    Patrimonialmente, el capital inmovilizado en mercadería (red global) está valorizado en <strong>${formatCurrency(diag.totalMercaderiaGlobal)}</strong> (<strong>${formatUSD(diag.totalMercaderiaGlobal / diag.cotizacionActual)}</strong> al tipo de cambio $${diag.cotizacionActual}).
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                    initCharts(diag);
+                }
+
+            } else if (activeTab === 'ingreso') {
+                const pv = formState.puntoVenta;
+                const isDeposito = pv === 'deposito';
+                
+                const selectColorClass = pv === 'tendens' ? 'text-purple-600 border-purple-400 focus:ring-purple-200' : 
+                                         (pv === 'concordia' || pv === 'chajari') ? 'text-pink-600 border-pink-400 focus:ring-pink-200' : 
+                                         'text-amber-900 border-amber-400 focus:ring-amber-200';
+                                         
+                const bgHighlightClass = pv === 'tendens' ? 'bg-purple-50 border-purple-200' : 
+                                         (pv === 'concordia' || pv === 'chajari') ? 'bg-pink-50 border-pink-200' : 
+                                         'bg-amber-50 border-amber-200';
+                
+                main.innerHTML = `
+                    <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                        <div class="mb-8 text-center">
+                            <h2 class="text-2xl font-bold text-gray-800">Carga operativa y Financiera</h2>
+                        </div>
+
+                        <form onsubmit="submitForm(event)" class="space-y-6">
+                            
+                            <div class="p-8 rounded-2xl border-2 shadow-sm ${bgHighlightClass} transition-colors duration-300 mb-6">
+                                <label class="block text-xl font-extrabold text-center mb-4 flex justify-center items-center gap-2 ${selectColorClass.split(' ')[0]}">
+                                    <i data-lucide="store" class="w-7 h-7"></i> SELECCIONE EL PUNTO DE VENTA
+                                </label>
+                                <select class="w-full md:w-2/3 mx-auto block p-4 text-center text-2xl border-2 rounded-xl font-bold bg-white outline-none focus:ring-4 transition-all ${selectColorClass}" onchange="handleFormChange('puntoVenta', this.value)">
+                                    ${Object.entries(PUNTOS_VENTA).map(([k, v]) => `<option value="${k}" ${formState.puntoVenta === k ? 'selected' : ''}>${v}</option>`).join('')}
+                                </select>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Mes</label>
+                                    <select class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" onchange="handleFormChange('mes', this.value)">
+                                        ${mesesList.map(m => `<option value="${m}" ${formState.mes === m ? 'selected' : ''}>${m}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Año</label>
+                                    <input type="number" class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value="${formState.año}" onchange="handleFormChange('año', this.value)" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-emerald-700 mb-2">Cotización Dólar</label>
+                                    <input type="number" placeholder="Ej: 1050" class="w-full p-2.5 border border-emerald-300 rounded-lg text-emerald-800 outline-none" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 ${!isDeposito ? 'md:grid-cols-2' : ''} gap-4">
+                                ${!isDeposito ? `
+                                <div class="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                                    <label class="block text-lg font-semibold text-blue-900 mb-1 flex items-center gap-2"><i data-lucide="trending-up" class="w-5 h-5"></i> Facturación Real</label>
+                                    <div class="relative mt-4">
+                                        <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
+                                        <input type="number" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required>
+                                    </div>
+                                </div>
+                                ` : ''}
+                                
+                                <div class="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
+                                    <label class="block text-lg font-semibold text-indigo-900 mb-1 flex items-center gap-2"><i data-lucide="archive" class="w-5 h-5"></i> Total Mercadería Valorizada</label>
+                                    <div class="relative mt-4">
+                                        <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
+                                        <input type="number" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.valorMercaderia}" onchange="handleFormChange('valorMercaderia', this.value)" required>
+                                    </div>
+                                </div>
+
+                                ${!isDeposito ? `
+                                <div class="bg-amber-50 p-6 rounded-xl border border-amber-100 md:col-span-2">
+                                    <label class="block text-lg font-semibold text-amber-900 mb-1 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5"></i> Objetivo de Venta (Meta)</label>
+                                    <div class="relative mt-4 max-w-md">
+                                        <span class="absolute left-4 top-3 text-gray-500 font-bold">$</span>
+                                        <input type="number" class="w-full pl-10 p-3 rounded-xl border outline-none" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required>
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+
+                            ${!isDeposito ? `
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-purple-50 p-6 rounded-xl border border-purple-100">
+                                <div>
+                                    <label class="block text-sm font-semibold text-purple-900 mb-2">Total Tickets</label>
+                                    <input type="number" class="w-full p-3 rounded-lg border outline-none" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-purple-900 mb-2">Unidades Vendidas</label>
+                                    <input type="number" class="w-full p-3 rounded-lg border outline-none" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required>
+                                </div>
+                            </div>
+                            ` : ''}
+
+                            <div class="bg-emerald-50 p-6 rounded-xl border border-emerald-100">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold text-emerald-900 flex items-center gap-2"><i data-lucide="refresh-ccw" class="w-5 h-5"></i> Stock Remanente</h3>
+                                    <button type="button" onclick="addStockRow()" class="text-sm bg-emerald-600 text-white px-3 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center gap-1 shadow-sm"><i data-lucide="plus-circle" class="w-4 h-4"></i> Fila</button>
+                                </div>
+                                <div id="stock-rows-container" class="space-y-3 mt-4"></div>
+                            </div>
+
+                            <div class="pt-4 flex justify-end">
+                                <button type="submit" class="bg-slate-800 text-white px-8 py-3.5 rounded-xl font-medium hover:bg-slate-900 transition shadow">Guardar en la Nube</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                window.renderFormStockRows();
+
+            } else if (activeTab === 'historial') {
+                main.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="p-6 border-b border-gray-100 bg-slate-50 flex justify-between items-center flex-wrap gap-4">
+                            <h2 class="text-xl font-bold text-gray-800">Historial en la Nube</h2>
+                            
+                            <!-- Botones de Backup -->
+                            <div class="flex items-center gap-3">
+                                <label class="cursor-pointer bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition shadow-sm font-medium flex items-center gap-2 text-sm">
+                                    <i data-lucide="upload" class="w-4 h-4"></i> Restaurar / Subir JSON
+                                    <input type="file" accept=".json" class="hidden" onchange="importBackup(event)">
+                                </label>
+                                <button onclick="exportBackup()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm font-medium flex items-center gap-2 text-sm">
+                                    <i data-lucide="download" class="w-4 h-4"></i> Descargar Copia
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-white text-gray-500 text-sm border-b border-gray-200">
+                                        <th class="p-4 font-medium">Período</th>
+                                        <th class="p-4 font-medium">Punto de Venta</th>
+                                        <th class="p-4 font-medium text-right">Facturación</th>
+                                        <th class="p-4 font-medium text-right">Mercadería (ARS/USD)</th>
+                                        <th class="p-4 font-medium text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm text-gray-700">
+                                    ${[...appData].sort((a,b) => {
+                                        if (a.año !== b.año) return b.año - a.año;
+                                        return monthOrder[b.mes] - monthOrder[a.mes];
+                                    }).map(row => {
+                                        const valUSD = row.valorMercaderia / (row.cotizacionDolar || 1);
+                                        const rowColorClass = row.puntoVenta === 'tendens' ? 'text-purple-600' : 
+                                                              (row.puntoVenta === 'concordia' || row.puntoVenta === 'chajari') ? 'text-pink-600' : 
+                                                              'text-amber-900';
+                                        return `
+                                        <tr class="border-b border-gray-50 hover:bg-fuchsia-50/50 transition-colors">
+                                            <td class="p-4 font-medium">${row.mes} ${row.año}</td>
+                                            <td class="p-4 font-bold ${rowColorClass}">${PUNTOS_VENTA[row.puntoVenta]}</td>
+                                            <td class="p-4 text-right">${row.puntoVenta === 'deposito' ? '-' : `<span class="font-bold text-green-700">${formatCurrency(row.ventas)}</span>`}</td>
+                                            <td class="p-4 text-right">
+                                                <div class="font-bold text-indigo-700">${formatCurrency(row.valorMercaderia || 0)}</div>
+                                                <div class="text-[11px] text-gray-500 mt-0.5">${formatUSD(valUSD)}</div>
+                                            </td>
+                                            <td class="p-4 text-center">
+                                                <button onclick="deleteRecord('${row.dbId}')" class="text-gray-400 hover:text-red-600 transition"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button>
+                                            </td>
+                                        </tr>`;
+                                    }).join('')}
+                                    ${appData.length === 0 ? '<tr><td colspan="5" class="p-8 text-center text-gray-400">La Nube está vacía. ¡Empieza a cargar tus datos!</td></tr>' : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            lucide.createIcons();
+        }
+
+        // --- GRÁFICOS (Chart.js) ---
+        function initCharts(diag) {
+            if (chartInstances.mom) chartInstances.mom.destroy();
+            if (chartInstances.yoy) chartInstances.yoy.destroy();
+            if (chartInstances.ventasMix) chartInstances.ventasMix.destroy();
+            if (chartInstances.capitalMix) chartInstances.capitalMix.destroy();
+
+            const labelsLocales = Object.keys(PUNTOS_VENTA).filter(k => k !== 'deposito').map(k => PUNTOS_VENTA[k]);
+            const dataVentasMix = Object.keys(PUNTOS_VENTA).filter(k => k !== 'deposito').map(k => {
+                const row = diag.lastMonthData.find(d => d.puntoVenta === k);
+                return row ? row.ventas : 0;
+            });
+
+            const ctxVentas = document.getElementById('chartVentasMix').getContext('2d');
+            chartInstances.ventasMix = new Chart(ctxVentas, {
+                type: 'doughnut',
+                data: {
+                    labels: labelsLocales,
+                    datasets: [{ data: dataVentasMix, backgroundColor: ['#db2777', '#c026d3', '#2563eb'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: function(c) { return ' ' + formatCurrency(c.raw); } } } } }
+            });
+
+            const labelsAll = Object.values(PUNTOS_VENTA);
+            const dataCapitalMix = Object.keys(PUNTOS_VENTA).map(k => {
+                const row = diag.lastMonthData.find(d => d.puntoVenta === k);
+                return row ? row.valorMercaderia : 0;
+            });
+
+            const ctxCapital = document.getElementById('chartCapitalMix').getContext('2d');
+            chartInstances.capitalMix = new Chart(ctxCapital, {
+                type: 'doughnut',
+                data: {
+                    labels: labelsAll,
+                    datasets: [{ data: dataCapitalMix, backgroundColor: ['#b45309', '#db2777', '#c026d3', '#2563eb'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: function(c) { return ' ' + formatCurrency(c.raw); } } } } }
+            });
+
+            const momLabels = Object.values(PUNTOS_VENTA);
+            const momPrevData = momLabels.map(pv => diag.prevMonthData.find(d => PUNTOS_VENTA[d.puntoVenta] === pv)?.ventas || 0);
+            const momLastData = momLabels.map(pv => diag.lastMonthData.find(d => PUNTOS_VENTA[d.puntoVenta] === pv)?.ventas || 0);
+
+            const ctxMom = document.getElementById('chartMom').getContext('2d');
+            chartInstances.mom = new Chart(ctxMom, {
+                type: 'bar',
+                data: {
+                    labels: momLabels,
+                    datasets: [
+                        { label: diag.prevMonthString, data: momPrevData, backgroundColor: '#cbd5e1', borderRadius: 4 },
+                        { label: diag.lastMonthString, data: momLastData, backgroundColor: '#3b82f6', borderRadius: 4 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v/1000000 + 'M' } } } }
+            });
+
+            const yoyGrouped = {};
+            appData.forEach(d => {
+                if(d.puntoVenta === 'deposito') return;
+                if(!yoyGrouped[d.mes]) yoyGrouped[d.mes] = { mes: d.mes };
+                yoyGrouped[d.mes][d.año] = (yoyGrouped[d.mes][d.año] || 0) + d.ventas;
+            });
+            const yoyArray = Object.values(yoyGrouped).sort((a,b) => monthOrder[a.mes] - monthOrder[b.mes]);
+            const yoyLabels = yoyArray.map(y => y.mes);
+            const years = Array.from(new Set(appData.map(d => d.año))).sort();
+            const colors = ['#94a3b8', '#3b82f6', '#10b981'];
+            
+            const datasetsYoy = years.map((y, idx) => ({
+                label: `Año ${y}`,
+                data: yoyArray.map(item => item[y] || 0),
+                backgroundColor: colors[idx % colors.length],
+                borderRadius: 4
+            }));
+
+            const ctxYoy = document.getElementById('chartYoy').getContext('2d');
+            chartInstances.yoy = new Chart(ctxYoy, {
+                type: 'bar',
+                data: { labels: yoyLabels, datasets: datasetsYoy },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v/1000000 + 'M' } } } }
+            });
+        }
+
+        // --- INICIO MIENTRAS SE CONECTA ---
+        render();
+
+    </script>
+</body>
+</html>
