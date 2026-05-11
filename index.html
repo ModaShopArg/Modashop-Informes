@@ -26,8 +26,10 @@
     <!-- Header -->
     <header class="bg-white shadow-sm print-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-center relative">
+            <!-- Reemplaza el src con la ruta o URL de tu logo real -->
             <img src="ModaShop.png" alt="Logo de la Empresa" class="h-16 object-contain" />
             
+            <!-- Botón Exportar PDF (Esquina Superior Derecha) -->
             <div id="export-btn-container" class="absolute right-4 sm:right-8 top-1/2 transform -translate-y-1/2" style="display: none;">
                 <button onclick="window.print()" class="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition shadow-sm font-medium">
                     <i data-lucide="printer" class="w-4 h-4"></i> <span class="hidden sm:inline">Exportar PDF</span>
@@ -346,7 +348,6 @@
             const bestLocalName = bestLocalData ? PUNTOS_VENTA[bestLocalData.puntoVenta] : '-';
             const totalStockActual = lastMonthData.reduce((acc, row) => acc + row.stock.reduce((s, item) => s + item.cantidad, 0), 0);
 
-            // NUEVO: Cálculo individual de los 4 Puntos para el Diagnóstico y Gráfico MoM
             const momIndividual = Object.keys(PUNTOS_VENTA).map(key => {
                 const current = lastMonthData.find(d => d.puntoVenta === key);
                 const prev = prevMonthData.find(d => d.puntoVenta === key);
@@ -394,7 +395,7 @@
                 totalVentas, percGrowth, cumplimiento, ticketPromedio, unidadesTicket,
                 bestLocalName, totalStockActual, totalMercaderiaGlobal, cotizacionActual,
                 lastMonthData, prevMonthData, stockRotation, topCategoriasValor, lastMonth, prevMonth,
-                momIndividual // Incluido para el nuevo panel
+                momIndividual
             };
         }
 
@@ -749,6 +750,16 @@
             lucide.createIcons();
         }
 
+        // --- FORMATEADOR DE EJES INTELIGENTE ---
+        const formatAxis = (value) => {
+            if (value === 0) return '$0';
+            let absVal = Math.abs(value);
+            if (absVal >= 1000000) return (value < 0 ? '-' : '') + '$' + (absVal / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            if (absVal >= 1000) return (value < 0 ? '-' : '') + '$' + (absVal / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+            return (value < 0 ? '-' : '') + '$' + absVal;
+        };
+        window.formatAxis = formatAxis;
+
         // --- GRÁFICOS (Chart.js) ---
         function initCharts(diag) {
             if (chartInstances.mom) chartInstances.mom.destroy();
@@ -806,12 +817,12 @@
                         responsive: true, 
                         maintainAspectRatio: false, 
                         plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + formatCurrency(c.raw); } } } }, 
-                        scales: { x: { beginAtZero: true, ticks: { callback: v => '$' + v/1000000 + 'M' } } } 
+                        scales: { x: { beginAtZero: true, ticks: { callback: window.formatAxis } } } 
                     }
                 });
             }
 
-            // NUEVO: Gráfico MoM Adaptado (Facturación para locales, Capital para Depósito)
+            // Gráfico MoM Adaptado
             const momLabels = diag.momIndividual.map(d => d.nombre);
             const momPrevData = diag.momIndividual.map(d => d.valPrev);
             const momLastData = diag.momIndividual.map(d => d.valCurrent);
@@ -841,7 +852,7 @@
                             }
                         }
                     }, 
-                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v/1000000 + 'M' } } } 
+                    scales: { y: { beginAtZero: true, ticks: { callback: window.formatAxis } } } 
                 }
             });
 
@@ -867,7 +878,7 @@
             chartInstances.yoy = new Chart(ctxYoy, {
                 type: 'bar',
                 data: { labels: yoyLabels, datasets: datasetsYoy },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v/1000000 + 'M' } } } }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: window.formatAxis } } } }
             });
         }
 
