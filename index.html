@@ -6,12 +6,10 @@
     <title>Sistemas-Informes</title>
     <link rel="icon" href="logo.png" type="image/png">
     
-    <!-- Importación de Tipografía estilo Gotham Rounded -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
-    <!-- Configuración inicial de Tema -->
     <script>
         if (localStorage.getItem('theme') === 'light') {
             document.documentElement.classList.remove('dark');
@@ -28,14 +26,14 @@
                 extend: {
                     colors: {
                         brand: {
-                            magenta: '#EC008C', // Pantone Process Magenta C
-                            black: '#1D1D1B',   // Pantone Process Black
-                            gray: '#878787',    // Negro 60%
-                            light: '#fdf2f8'    // Rosa pastel para fondos activos
+                            magenta: '#EC008C', 
+                            black: '#1D1D1B',   
+                            gray: '#878787',    
+                            light: '#fdf2f8'    
                         }
                     },
                     fontFamily: {
-                        sans: ['Nunito', 'sans-serif'], // Tipografía redondeada corporativa
+                        sans: ['Nunito', 'sans-serif'],
                     }
                 }
             }
@@ -67,19 +65,17 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .chart-container { position: relative; height: 250px; width: 100%; }
-        .empty-chart-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(241,245,249,0.85); color: #878787; font-size: 0.75rem; font-weight: 700; border-radius: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; pointer-events: none; }
+        .empty-chart-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(241,245,249,0.85); color: #878787; font-size: 0.75rem; font-weight: 700; border-radius: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; pointer-events: none; z-index: 10; }
         .dark .empty-chart-overlay { background: rgba(15, 23, 42, 0.85); color: #878787; }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 font-sans text-brand-black dark:text-gray-100 pb-12 min-h-screen">
 
-    <!-- Botón Toggle de Tema -->
     <button onclick="toggleTheme()" class="fixed bottom-6 right-6 z-50 p-3.5 bg-brand-black dark:bg-white text-white dark:text-brand-black rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center group border border-gray-700 dark:border-gray-200">
         <i id="theme-icon-light" data-lucide="sun" class="w-6 h-6 hidden dark:block group-hover:rotate-45 transition-transform duration-500"></i>
         <i id="theme-icon-dark" data-lucide="moon" class="w-6 h-6 block dark:hidden group-hover:-rotate-12 transition-transform duration-500"></i>
     </button>
 
-    <!-- Header -->
     <header class="bg-white dark:bg-slate-900 shadow-sm print-hidden border-b border-gray-100 dark:border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between relative">
             <img src="logo.png" alt="Logo de la Empresa" class="h-16 object-contain bg-white/10 rounded-xl p-1" />
@@ -96,7 +92,6 @@
         </div>
     </header>
 
-    <!-- Navegación Principal -->
     <div class="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-10 print-hidden shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
             <div id="cloud-status" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-amber-500 flex items-center gap-1">
@@ -126,7 +121,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Conexión
         let firebaseConfig = {
             apiKey: "AIzaSyB4X4-HY_QTD9_4LGO244mGJidMdSA7lrA",
             authDomain: "tablero-valorizado-a6c2d.firebaseapp.com",
@@ -159,7 +153,6 @@
         const monthOrder = { 'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12 };
         const mesesList = Object.keys(monthOrder);
 
-        // --- SISTEMA DE TEMA CLARO/OSCURO ---
         window.toggleTheme = () => {
             const html = document.documentElement;
             html.classList.toggle('dark');
@@ -239,11 +232,11 @@
 
         let formState = {
             mes: 'Enero', año: new Date().getFullYear().toString(), puntoVenta: 'concordia', cotizacionDolar: '',
-            ventas: '', objetivo: '', tickets: '', ticketsMañana: '', productosVendidos: '',
+            ventas: '', ventasMañana: '', tickets: '', ticketsMañana: '', productosVendidos: '',
             stock: [{ categoria: '', cantidad: '', valor: '' }]
         };
 
-        window.handleFormChange = (field, value) => { formState[field] = value; if (field === 'puntoVenta') render(); };
+        window.handleFormChange = (field, value) => { formState[field] = value; if (field === 'puntoVenta' || field === 'mes' || field === 'año') render(); };
         window.handleStockChange = (idx, field, val) => { 
             formState.stock[idx][field] = val; 
             const suma = formState.stock.reduce((acc, item) => acc + window.parseInputNumber(item.valor), 0);
@@ -259,13 +252,16 @@
             const docId = `${formState.mes}-${formState.año}-${formState.puntoVenta}`;
             let dataToSave = { mes: formState.mes, año: formState.año, puntoVenta: formState.puntoVenta, cotizacionDolar: window.parseInputNumber(formState.cotizacionDolar) || 1 };
             if (type === 'ventas') {
+                dataToSave.isVentasLoaded = true;
                 dataToSave.ventas = window.parseInputNumber(formState.ventas);
-                dataToSave.objetivo = window.parseInputNumber(formState.objetivo);
+                dataToSave.ventasMañana = window.parseInputNumber(formState.ventasMañana);
+                dataToSave.ventasTarde = Math.max(0, dataToSave.ventas - dataToSave.ventasMañana);
                 dataToSave.tickets = window.parseInputNumber(formState.tickets);
                 dataToSave.ticketsMañana = window.parseInputNumber(formState.ticketsMañana);
                 dataToSave.ticketsTarde = Math.max(0, dataToSave.tickets - dataToSave.ticketsMañana);
                 dataToSave.productosVendidos = window.parseInputNumber(formState.productosVendidos);
             } else {
+                dataToSave.isStockLoaded = true;
                 const stockLimpio = formState.stock.filter(s => s.categoria).map(s => ({
                     categoria: s.categoria, cantidad: window.parseInputNumber(s.cantidad), valor: window.parseInputNumber(s.valor)
                 }));
@@ -273,12 +269,12 @@
                 dataToSave.valorMercaderia = stockLimpio.reduce((acc, item) => acc + item.valor, 0);
             }
             await setDoc(getDbDoc(docId), dataToSave, { merge: true });
-            if(type === 'ventas') { formState.ventas=''; formState.objetivo=''; formState.tickets=''; formState.ticketsMañana=''; formState.productosVendidos=''; }
+            if(type === 'ventas') { formState.ventas=''; formState.ventasMañana=''; formState.tickets=''; formState.ticketsMañana=''; formState.productosVendidos=''; }
             else { formState.stock = [{ categoria: '', cantidad: '', valor: '' }]; }
             window.switchTab('historial');
         };
 
-        window.deleteRecord = async (dbId) => { if(confirm('¿Eliminar registro completo?')) await deleteDoc(getDbDoc(dbId)); };
+        window.deleteRecord = async (dbId) => { if(confirm('¿Seguro que deseas eliminar este registro histórico?')) await deleteDoc(getDbDoc(dbId)); };
 
         function getSortedPeriods() {
             const periods = Array.from(new Set(appData.map(d => `${d.mes}-${d.año}`)));
@@ -302,17 +298,19 @@
             const lastMonthData = appData.filter(d => d.mes === lastMonth && d.año === lastYear);
             const prevMonthData = prevPeriod ? appData.filter(d => d.mes === prevMonth && d.año === prevYear) : [];
 
-            let tV = 0, tObj = 0, tT = 0, tP = 0, tM = 0, cotiz = 1;
+            let tV = 0, tT = 0, tP = 0, tM = 0, cotiz = 1;
             let tM_prev = 0, cotiz_prev = 1;
             let tT_manana = 0, tT_tarde = 0;
+            let tV_manana = 0, tV_tarde = 0;
             const capPorCat = {};
 
             lastMonthData.forEach(d => {
                 tM += (Number(d.valorMercaderia) || 0);
                 if (Number(d.cotizacionDolar) > cotiz) cotiz = Number(d.cotizacionDolar);
                 if (d.puntoVenta !== 'deposito') { 
-                    tV += (d.ventas || 0); tObj += (d.objetivo || 0); tT += (d.tickets || 0); tP += (d.productosVendidos || 0); 
+                    tV += (d.ventas || 0); tT += (d.tickets || 0); tP += (d.productosVendidos || 0); 
                     tT_manana += (d.ticketsMañana || 0); tT_tarde += (d.ticketsTarde || 0);
+                    tV_manana += (d.ventasMañana || 0); tV_tarde += (d.ventasTarde || 0);
                 }
                 if (d.stock) d.stock.forEach(i => { 
                     if(!capPorCat[i.categoria]) capPorCat[i.categoria] = {v:0, c:0}; 
@@ -334,13 +332,13 @@
                 const vC_cap = cur ? (cur.valorMercaderia || 0) : 0;
                 const vP_cap = pre ? (pre.valorMercaderia || 0) : 0;
                 const growth = isD ? (vP_cap > 0 ? ((vC_cap-vP_cap)/vP_cap)*100 : 0) : (vP_sales > 0 ? ((vC_sales-vP_sales)/vP_sales)*100 : 0);
-                return { key, nombre: PUNTOS_VENTA[key], vC_sales, vP_sales, vC_cap, vP_cap, growth, obj: cur?.objetivo || 0, tickets: cur?.tickets || 0, units: cur?.productosVendidos || 0, isDepo: isD };
+                return { key, nombre: PUNTOS_VENTA[key], vC_sales, vP_sales, vC_cap, vP_cap, growth, tickets: cur?.tickets || 0, units: cur?.productosVendidos || 0, isDepo: isD };
             });
 
             return {
                 lastMonthString: `${lastMonth} ${lastYear}`, prevMonthString: prevMonth ? `${prevMonth} ${prevYear}` : 'N/A',
-                tV, tM, tM_prev, cotiz, cotiz_prev, cumplimiento: tObj > 0 ? (tV/tObj)*100 : 0, ticketPromedio: tT > 0 ? tV/tT : 0, unidadesTicket: tT > 0 ? tP/tT : 0,
-                tT_manana, tT_tarde, momIndiv, lastMonthData,
+                tV, tM, tM_prev, cotiz, cotiz_prev, ticketPromedio: tT > 0 ? tV/tT : 0, unidadesTicket: tT > 0 ? tP/tT : 0,
+                tT_manana, tT_tarde, tV_manana, tV_tarde, momIndiv, lastMonthData,
                 catStats: Object.keys(capPorCat).map(k => ({name: k, val: capPorCat[k].v, avg: capPorCat[k].c > 0 ? capPorCat[k].v/capPorCat[k].c : 0})).sort((a,b)=>b.val-a.val)
             };
         }
@@ -348,12 +346,16 @@
         window.renderFormStockRows = () => {
             const container = document.getElementById('stock-rows-container');
             if(!container) return;
+            const docId = `${formState.mes}-${formState.año}-${formState.puntoVenta}`;
+            const currentRec = appData.find(d => d.dbId === docId);
+            const isStockBlocked = currentRec && (currentRec.isStockLoaded || currentRec.valorMercaderia > 0);
+            
             container.innerHTML = formState.stock.map((item, idx) => `
                 <div class="flex gap-2 items-center">
-                    <div class="flex-[2]"><input type="text" placeholder="Rubro" class="w-full p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required /></div>
-                    <div class="flex-1"><input type="text" placeholder="Cant." class="w-full p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-center text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required /></div>
-                    <div class="flex-[1.5] relative"><span class="absolute left-2 top-2 text-gray-400 text-sm">$</span><input type="text" placeholder="Valor" class="w-full pl-5 p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta" value="${item.valor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required /></div>
-                    ${formState.stock.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2 text-red-400 hover:text-brand-magenta"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : '<div class="w-8"></div>'}
+                    <div class="flex-[2]"><input type="text" placeholder="Rubro" class="w-full p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta ${isStockBlocked ? 'opacity-50 cursor-not-allowed' : ''}" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required ${isStockBlocked ? 'disabled' : ''} /></div>
+                    <div class="flex-1"><input type="text" placeholder="Cant." class="w-full p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-center text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta ${isStockBlocked ? 'opacity-50 cursor-not-allowed' : ''}" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required ${isStockBlocked ? 'disabled' : ''}/></div>
+                    <div class="flex-[1.5] relative"><span class="absolute left-2 top-2 text-gray-400 text-sm">$</span><input type="text" placeholder="Valor" class="w-full pl-5 p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta ${isStockBlocked ? 'opacity-50 cursor-not-allowed' : ''}" value="${item.valor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required ${isStockBlocked ? 'disabled' : ''}/></div>
+                    ${formState.stock.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2 text-red-400 hover:text-brand-magenta" ${isStockBlocked ? 'disabled' : ''}><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : '<div class="w-8"></div>'}
                 </div>
             `).join('');
             lucide.createIcons();
@@ -442,14 +444,14 @@
                                         <div class="chart-container"><canvas id="chartVentasMix"></canvas>${noDataCommercialOverlay}</div>
                                     </div>
                                     <div class="bg-slate-100 dark:bg-slate-900 p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-800">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-brand-gray tracking-widest">Tráfico por Turno (Mañana vs Tarde)</h3>
-                                        <div class="chart-container"><canvas id="chartTurnos"></canvas>${noDataTurnosOverlay}</div>
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-brand-gray tracking-widest">Ingresos por Turno (Mañana vs Tarde)</h3>
+                                        <div class="chart-container"><canvas id="chartVentasTurno"></canvas>${noDataTurnosOverlay}</div>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <div class="bg-slate-100 dark:bg-slate-900 p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-800">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-brand-gray tracking-widest">Brecha de Metas (Real vs Objetivo)</h3>
-                                        <div class="chart-container"><canvas id="chartGap"></canvas>${noDataCommercialOverlay}</div>
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-brand-gray tracking-widest">Tráfico de Tickets por Turno</h3>
+                                        <div class="chart-container"><canvas id="chartTurnos"></canvas>${noDataTurnosOverlay}</div>
                                     </div>
                                     <div class="bg-slate-100 dark:bg-slate-900 p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-800">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-brand-gray tracking-widest">UPT por Local</h3>
@@ -494,7 +496,7 @@
                                 <h3 class="text-lg font-bold">Diagnóstico Ejecutivo - ${d.lastMonthString}</h3>
                             </div>
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm text-gray-300 dark:text-slate-400 leading-relaxed">
-                                <div class="space-y-3"><p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Comercial</p><p>Ventas totales: <strong class="text-white">${formatCurrency(d.tV)}</strong>. Cumplimiento de metas: <strong class="text-white">${d.cumplimiento.toFixed(1)}%</strong>. Ticket promedio registrado de <strong class="text-white">${formatCurrency(d.ticketPromedio)}</strong>.</p></div>
+                                <div class="space-y-3"><p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Comercial</p><p>Ventas totales: <strong class="text-white">${formatCurrency(d.tV)}</strong>. El Ticket promedio registrado general es de <strong class="text-white">${formatCurrency(d.ticketPromedio)}</strong>.</p></div>
                                 <div class="space-y-3"><p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Patrimonial</p><p>Variación de Capital Global: de ${formatCurrency(d.tM_prev)} a <strong class="text-white">${formatCurrency(d.tM)}</strong>. Valorizado en dólares: <strong class="text-brand-magenta">${formatUSD(d.tM/d.cotiz)}</strong>.</p></div>
                             </div>
                         </div>
@@ -503,11 +505,36 @@
                 setTimeout(() => initCharts(d), 50); 
             } else if (activeTab === 'cargaVentas') {
                 document.getElementById('export-btn-container').style.display = 'none';
-                const calcTarde = Math.max(0, window.parseInputNumber(formState.tickets) - window.parseInputNumber(formState.ticketsMañana));
+                
+                // LÓGICA DE BLOQUEO
+                const docId = `${formState.mes}-${formState.año}-${formState.puntoVenta}`;
+                const currentRec = appData.find(d => d.dbId === docId);
+                const isVentasBlocked = currentRec && (currentRec.isVentasLoaded || currentRec.ventas > 0);
+                
+                const disabledAttr = isVentasBlocked ? 'disabled' : '';
+                const opacityClass = isVentasBlocked ? 'opacity-50 cursor-not-allowed' : '';
+
+                const calcVentaTarde = Math.max(0, window.parseInputNumber(formState.ventas) - window.parseInputNumber(formState.ventasMañana));
+                const calcTicketTarde = Math.max(0, window.parseInputNumber(formState.tickets) - window.parseInputNumber(formState.ticketsMañana));
+                
                 main.innerHTML = `
                     <div class="max-w-3xl mx-auto bg-white dark:bg-slate-900 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 animate-in fade-in">
-                        <div class="mb-6 text-center"><h2 class="text-2xl font-bold text-brand-black dark:text-white">Carga de Ventas y Metas</h2><p class="text-brand-gray text-sm">Información transaccional mensual por local.</p></div>
+                        <div class="mb-6 text-center"><h2 class="text-2xl font-bold text-brand-black dark:text-white">Carga de Ventas</h2><p class="text-brand-gray text-sm">Información transaccional mensual por local.</p></div>
+                        
+                        ${isVentasBlocked ? `
+                            <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-6 rounded-r-xl">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="lock" class="text-red-500 w-6 h-6"></i>
+                                    <div>
+                                        <h4 class="text-red-800 dark:text-red-400 font-bold text-sm">Registro Bloqueado</h4>
+                                        <p class="text-red-600 dark:text-red-300 text-xs mt-1">Las ventas de <b>${formState.mes} ${formState.año}</b> para <b>${PUNTOS_VENTA[formState.puntoVenta]}</b> ya están cargadas. Para modificarlas, elimine el registro desde la pestaña "Historial".</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <form onsubmit="submitGenericForm(event, 'ventas')" class="space-y-6">
+                            <!-- Los dropdowns de selección nunca se bloquean para poder navegar -->
                             <div class="p-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
                                 <label class="block text-center font-bold text-brand-gray uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label>
                                 <select class="w-full p-3 text-xl font-bold border-2 rounded-xl bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-brand-black dark:text-white outline-none focus:border-brand-magenta" onchange="handleFormChange('puntoVenta', this.value)">
@@ -519,22 +546,66 @@
                                     <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Dólar</label><input type="text" class="w-full p-2 bg-white dark:bg-slate-800 border border-brand-magenta/30 rounded-lg text-sm font-bold text-brand-black dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required></div>
                                 </div>
                             </div>
+
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2"><label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Venta Real ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-brand-magenta" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required></div>
-                                <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2"><label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Meta ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-brand-magenta" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required></div>
-                                <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2"><label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Total Tickets</label><input type="text" class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold outline-none focus:ring-2 focus:ring-brand-magenta" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required></div>
-                                <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2"><label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Tickets Mañana</label><input type="text" class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold outline-none focus:ring-2 focus:ring-brand-magenta" value="${formState.ticketsMañana}" onchange="handleFormChange('ticketsMañana', this.value)" required><p class="text-[10px] text-brand-magenta mt-2 font-bold tracking-wide">TURNO TARDE: ${calcTarde}</p></div>
-                                <div class="bg-brand-light dark:bg-brand-magenta/10 p-5 rounded-xl border border-brand-magenta/20 md:col-span-4"><label class="block text-xs font-bold text-brand-magenta uppercase mb-2">Total Unidades Vendidas</label><input type="text" class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-brand-magenta" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required></div>
+                                <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2">
+                                    <label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Venta Total ($)</label>
+                                    <input type="text" placeholder="Total Facturado..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required ${disabledAttr}>
+                                </div>
+                                <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2">
+                                    <label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Venta Turno Mañana ($)</label>
+                                    <input type="text" placeholder="Facturación a la mañana..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${formState.ventasMañana}" onchange="handleFormChange('ventasMañana', this.value)" required ${disabledAttr}>
+                                    <p class="text-[10px] text-brand-magenta mt-2 font-bold tracking-wide">TURNO TARDE (Auto): $${formatNumber(calcVentaTarde)}</p>
+                                </div>
+                                <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2">
+                                    <label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Total Tickets</label>
+                                    <input type="text" placeholder="Tickets de todo el día..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required ${disabledAttr}>
+                                </div>
+                                <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2">
+                                    <label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Tickets Mañana</label>
+                                    <input type="text" placeholder="Ej: 150" class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${formState.ticketsMañana}" onchange="handleFormChange('ticketsMañana', this.value)" required ${disabledAttr}>
+                                    <p class="text-[10px] text-brand-gray mt-2 font-bold tracking-wide">TURNO TARDE (Auto): ${calcTicketTarde}</p>
+                                </div>
+                                <div class="bg-brand-light dark:bg-brand-magenta/10 p-5 rounded-xl border border-brand-magenta/20 md:col-span-4">
+                                    <label class="block text-xs font-bold text-brand-magenta uppercase mb-2">Total Unidades Vendidas</label>
+                                    <input type="text" placeholder="Ej: 850" class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required ${disabledAttr}>
+                                </div>
                             </div>
-                            <div class="flex justify-end"><button type="submit" class="bg-brand-black text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition">Guardar Ventas</button></div>
+                            <div class="flex justify-end">
+                                <button type="submit" ${disabledAttr} class="bg-brand-black text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition ${opacityClass}">
+                                    Guardar Ventas
+                                </button>
+                            </div>
                         </form>
                     </div>
                 `;
             } else if (activeTab === 'cargaStock') {
                 document.getElementById('export-btn-container').style.display = 'none';
+
+                // LÓGICA DE BLOQUEO STOCK
+                const docId = `${formState.mes}-${formState.año}-${formState.puntoVenta}`;
+                const currentRec = appData.find(d => d.dbId === docId);
+                const isStockBlocked = currentRec && (currentRec.isStockLoaded || currentRec.valorMercaderia > 0);
+                
+                const disabledAttr = isStockBlocked ? 'disabled' : '';
+                const opacityClass = isStockBlocked ? 'opacity-50 cursor-not-allowed' : '';
+
                 main.innerHTML = `
                     <div class="max-w-3xl mx-auto bg-white dark:bg-slate-900 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 animate-in fade-in">
                         <div class="mb-6 text-center"><h2 class="text-2xl font-bold text-brand-black dark:text-white">Carga de Inventario (Stock)</h2><p class="text-brand-gray text-sm">Valorización de activos inmovilizados por punto.</p></div>
+                        
+                        ${isStockBlocked ? `
+                            <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-6 rounded-r-xl">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="lock" class="text-red-500 w-6 h-6"></i>
+                                    <div>
+                                        <h4 class="text-red-800 dark:text-red-400 font-bold text-sm">Registro Bloqueado</h4>
+                                        <p class="text-red-600 dark:text-red-300 text-xs mt-1">El stock de <b>${formState.mes} ${formState.año}</b> para <b>${PUNTOS_VENTA[formState.puntoVenta]}</b> ya está cargado. Para modificarlo, elimine el registro desde la pestaña "Historial".</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <form onsubmit="submitGenericForm(event, 'stock')" class="space-y-6">
                             <div class="p-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
                                 <label class="block text-center font-bold text-brand-gray uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label>
@@ -548,17 +619,17 @@
                                 </div>
                             </div>
                             <div class="bg-white dark:bg-slate-950 p-6 rounded-xl border border-gray-200 dark:border-slate-800">
-                                <div class="flex justify-between items-center mb-4"><div><h3 class="text-sm font-bold text-brand-black dark:text-white uppercase">Detalle Rubros</h3><p id="stock-sum-display" class="text-lg font-black text-brand-magenta">Total: $0,00</p></div><button type="button" onClick="addStockRow()" class="bg-brand-gray text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-brand-black transition">+ Añadir Rubro</button></div>
+                                <div class="flex justify-between items-center mb-4"><div><h3 class="text-sm font-bold text-brand-black dark:text-white uppercase">Detalle Rubros</h3><p id="stock-sum-display" class="text-lg font-black text-brand-magenta">Total: $0,00</p></div><button type="button" onClick="addStockRow()" ${disabledAttr} class="bg-brand-gray text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-brand-black transition ${opacityClass}">+ Añadir Rubro</button></div>
                                 <div id="stock-rows-container" class="space-y-2"></div>
                             </div>
-                            <div class="flex justify-end"><button type="submit" class="bg-brand-black text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition">Guardar Stock</button></div>
+                            <div class="flex justify-end"><button type="submit" ${disabledAttr} class="bg-brand-black text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition ${opacityClass}">Guardar Stock</button></div>
                         </form>
                     </div>
                 `;
                 window.renderFormStockRows();
             } else {
                 document.getElementById('export-btn-container').style.display = 'none';
-                main.innerHTML = `<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden animate-in fade-in"><div class="p-6 border-b border-gray-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold uppercase text-xs tracking-widest text-brand-gray">Historial de Cargas</div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-white dark:bg-slate-900 text-brand-gray border-b border-gray-100 dark:border-slate-800"><th class="p-4">Período</th><th class="p-4">Punto</th><th class="p-4 text-right">Venta</th><th class="p-4 text-right">Capital</th>${isAdmin ? `<th class="p-4 text-center">Acción</th>` : ''}</tr></thead><tbody>${appData.slice().sort((a,b)=>b.dbId-a.dbId).map(r=>`<tr class="border-b border-gray-50 dark:border-slate-800 hover:bg-brand-light dark:hover:bg-slate-800 transition-colors"><td class="p-4 font-bold text-brand-black dark:text-white">${r.mes} ${r.año}</td><td class="p-4 text-brand-black dark:text-gray-300 font-bold">${PUNTOS_VENTA[r.puntoVenta]}</td><td class="p-4 text-right font-bold text-brand-magenta">${r.ventas ? formatCurrency(r.ventas) : '-'}</td><td class="p-4 text-right font-bold text-brand-black dark:text-gray-300">${r.valorMercaderia ? formatCurrency(r.valorMercaderia) : '-'}</td>${isAdmin ? `<td class="p-4 text-center"><button onclick="deleteRecord('${r.dbId}')" class="text-brand-gray hover:text-brand-magenta transition"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button></td>` : ''}</tr>`).join('')}</tbody></table></div></div>`;
+                main.innerHTML = `<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden animate-in fade-in"><div class="p-6 border-b border-gray-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold uppercase text-xs tracking-widest text-brand-gray">Historial de Cargas</div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-white dark:bg-slate-900 text-brand-gray border-b border-gray-100 dark:border-slate-800"><th class="p-4">Período</th><th class="p-4">Punto</th><th class="p-4 text-right">Venta Total</th><th class="p-4 text-right">Capital</th>${isAdmin ? `<th class="p-4 text-center">Acción</th>` : ''}</tr></thead><tbody>${appData.slice().sort((a,b)=>b.dbId-a.dbId).map(r=>`<tr class="border-b border-gray-50 dark:border-slate-800 hover:bg-brand-light dark:hover:bg-slate-800 transition-colors"><td class="p-4 font-bold text-brand-black dark:text-white">${r.mes} ${r.año}</td><td class="p-4 text-brand-black dark:text-gray-300 font-bold">${PUNTOS_VENTA[r.puntoVenta]}</td><td class="p-4 text-right font-bold text-brand-magenta">${r.ventas ? formatCurrency(r.ventas) : '-'}</td><td class="p-4 text-right font-bold text-brand-black dark:text-gray-300">${r.valorMercaderia ? formatCurrency(r.valorMercaderia) : '-'}</td>${isAdmin ? `<td class="p-4 text-center"><button onclick="deleteRecord('${r.dbId}')" class="text-brand-gray hover:text-brand-magenta transition"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button></td>` : ''}</tr>`).join('')}</tbody></table></div></div>`;
             }
             lucide.createIcons();
         }
@@ -573,7 +644,6 @@
             Chart.defaults.scale.ticks.color = textColor;
             Chart.defaults.font.family = "'Nunito', sans-serif";
 
-            // Paleta corporativa ModaShop: Magenta, Negro, Gris Oscuro, Gris Claro
             const brandPalette = ['#EC008C', '#1D1D1B', '#878787', isDark ? '#475569' : '#cbd5e1'];
 
             const chartCfg = (id, type, data, options) => { 
@@ -587,7 +657,8 @@
             if (document.getElementById('chartVentasMix')) {
                 chartCfg('chartVentasMix', 'doughnut', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.vC_sales), backgroundColor: brandPalette, borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
                 chartCfg('chartTurnos', 'doughnut', { labels: ['Mañana', 'Tarde'], datasets: [{ data: [d.tT_manana, d.tT_tarde], backgroundColor: ['#EC008C', '#1D1D1B'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
-                chartCfg('chartGap', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ label: 'Real', data: locals.map(l=>l.vC_sales), backgroundColor: '#EC008C', borderRadius: 4 }, { label: 'Meta', data: locals.map(l=>l.obj), backgroundColor: isDark ? '#334155' : '#e2e8f0', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                // Reemplazo gráfico Brecha de Metas por Ingresos por Turno (Financiero)
+                chartCfg('chartVentasTurno', 'doughnut', { labels: ['Ingresos Mañana', 'Ingresos Tarde'], datasets: [{ data: [d.tV_manana, d.tV_tarde], backgroundColor: ['#EC008C', '#1D1D1B'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: function(c) { return ' ' + formatCurrency(c.raw); } } } } });
                 chartCfg('chartMomComercial', 'bar', { labels: locals.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: locals.map(m=>m.vP_sales), backgroundColor: isDark ? '#334155' : '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: locals.map(m=>m.vC_sales), backgroundColor: '#EC008C', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
                 chartCfg('chartUPT', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.tickets > 0 ? l.units/l.tickets : 0), backgroundColor: '#1D1D1B', borderRadius: 20 }] }, { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } });
                 const yoyG = {}; appData.forEach(r => { if(r.puntoVenta!=='deposito'){ if(!yoyG[r.mes]) yoyG[r.mes]={name:r.mes}; yoyG[r.mes][r.año]=(yoyG[r.mes][r.año]||0)+(r.ventas||0); } });
