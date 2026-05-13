@@ -1,44 +1,78 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistemas-Informes</title>
     <link rel="icon" href="logo.png" type="image/png">
     
+    <!-- Configuración inicial de Tema para evitar parpadeos -->
+    <script>
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @media print {
             .print-hidden { display: none !important; }
-            body { background-color: white !important; }
+            body { background-color: white !important; color: black !important; }
             .print-break-inside-avoid { break-inside: avoid; }
             .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0; }
         }
-        .tab-active { border-bottom-width: 2px; border-color: #2563eb; color: #2563eb; font-weight: 600; }
+        /* Transiciones suaves para el cambio de tema */
+        body, div, header, nav, button, p, h2, h3, h4, span, td, th { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+        
+        .tab-active { border-bottom-width: 2px; border-color: #3b82f6; color: #3b82f6; font-weight: 600; }
+        .dark .tab-active { border-color: #60a5fa; color: #60a5fa; }
+        
         .subtab-active { background-color: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
+        .dark .subtab-active { background-color: #334155; color: #f8fafc; border-color: #475569; }
+        
         .month-card { cursor: pointer; transition: all 0.2s ease; border: 2px solid transparent; }
         .month-card:hover { transform: translateY(-2px); border-color: #e2e8f0; }
+        .dark .month-card:hover { border-color: #475569; }
         .month-card.active { border-color: #3b82f6; background-color: #eff6ff; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1); }
+        .dark .month-card.active { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .chart-container { position: relative; height: 250px; width: 100%; }
         .empty-chart-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.8); color: #94a3b8; font-size: 0.75rem; font-weight: 600; border-radius: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; pointer-events: none; }
+        .dark .empty-chart-overlay { background: rgba(30, 41, 59, 0.85); color: #64748b; }
     </style>
 </head>
-<body class="bg-fuchsia-100 font-sans text-gray-900 pb-12">
+<body class="bg-fuchsia-100 dark:bg-slate-950 font-sans text-gray-900 dark:text-gray-100 pb-12 min-h-screen">
+
+    <!-- Botón Toggle de Tema (Esquina inferior derecha) -->
+    <button onclick="toggleTheme()" class="fixed bottom-6 right-6 z-50 p-3.5 bg-slate-800 dark:bg-white text-white dark:text-slate-800 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center group">
+        <i id="theme-icon-light" data-lucide="sun" class="w-6 h-6 hidden dark:block group-hover:rotate-45 transition-transform duration-500"></i>
+        <i id="theme-icon-dark" data-lucide="moon" class="w-6 h-6 block dark:hidden group-hover:-rotate-12 transition-transform duration-500"></i>
+    </button>
 
     <!-- Header -->
-    <header class="bg-white shadow-sm print-hidden">
+    <header class="bg-white dark:bg-slate-900 shadow-sm print-hidden border-b border-transparent dark:border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between relative">
-            <img src="logo.png" alt="Logo de la Empresa" class="h-16 object-contain" />
+            <img src="logo.png" alt="Logo de la Empresa" class="h-16 object-contain bg-white/10 rounded-xl p-1" />
             <div class="flex items-center gap-3">
-                <button onclick="toggleAdmin()" id="btn-admin" class="flex items-center gap-2 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-200 transition shadow-sm font-medium text-sm">
+                <button onclick="toggleAdmin()" id="btn-admin" class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm font-medium text-sm">
                     <i data-lucide="lock" class="w-4 h-4"></i> <span class="hidden sm:inline">Modo Lectura</span>
                 </button>
                 <div id="export-btn-container" style="display: none;">
-                    <button onclick="window.print()" class="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition shadow-sm font-medium text-sm">
+                    <button onclick="window.print()" class="flex items-center gap-2 bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition shadow-sm font-medium text-sm">
                         <i data-lucide="printer" class="w-4 h-4"></i> <span class="hidden sm:inline">Exportar PDF</span>
                     </button>
                 </div>
@@ -47,22 +81,22 @@
     </header>
 
     <!-- Navegación Principal -->
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-10 print-hidden shadow-sm">
+    <div class="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 sticky top-0 z-10 print-hidden shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
             <div id="cloud-status" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-amber-500 flex items-center gap-1">
                 <i data-lucide="cloud-off" class="w-4 h-4"></i> Conectando...
             </div>
             <div class="flex space-x-6 justify-center" id="tab-navigation">
-                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="py-4 px-1 text-sm transition text-gray-500 hover:text-gray-700 flex items-center gap-2">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="py-4 px-1 text-sm transition text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center gap-2">
                     <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Resumen
                 </button>
-                <button onclick="switchTab('cargaVentas')" id="tab-cargaVentas" style="display:none;" class="py-4 px-1 text-sm transition text-gray-500 hover:text-gray-700 flex items-center gap-2">
+                <button onclick="switchTab('cargaVentas')" id="tab-cargaVentas" style="display:none;" class="py-4 px-1 text-sm transition text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center gap-2">
                     <i data-lucide="trending-up" class="w-4 h-4"></i> Carga Ventas
                 </button>
-                <button onclick="switchTab('cargaStock')" id="tab-cargaStock" style="display:none;" class="py-4 px-1 text-sm transition text-gray-500 hover:text-gray-700 flex items-center gap-2">
+                <button onclick="switchTab('cargaStock')" id="tab-cargaStock" style="display:none;" class="py-4 px-1 text-sm transition text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center gap-2">
                     <i data-lucide="package" class="w-4 h-4"></i> Carga Stock
                 </button>
-                <button onclick="switchTab('historial')" id="tab-historial" class="py-4 px-1 text-sm transition text-gray-500 hover:text-gray-700 flex items-center gap-2">
+                <button onclick="switchTab('historial')" id="tab-historial" class="py-4 px-1 text-sm transition text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center gap-2">
                     <i data-lucide="store" class="w-4 h-4"></i> Historial
                 </button>
             </div>
@@ -76,7 +110,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Conexión dinámica e híbrida (ModaShop + Canvas)
+        // Conexión
         let firebaseConfig = {
             apiKey: "AIzaSyB4X4-HY_QTD9_4LGO244mGJidMdSA7lrA",
             authDomain: "tablero-valorizado-a6c2d.firebaseapp.com",
@@ -93,7 +127,6 @@
         const db = getFirestore(app);
         const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'mi-tablero';
 
-        // Función constructora de rutas a prueba de fallos
         const getDbCollection = () => isCanvasEnv ? collection(db, 'artifacts', canvasAppId, 'public', 'data', 'registros_mensuales') : collection(db, 'registros_mensuales');
         const getDbDoc = (docId) => isCanvasEnv ? doc(db, 'artifacts', canvasAppId, 'public', 'data', 'registros_mensuales', docId) : doc(db, 'registros_mensuales', docId);
 
@@ -103,12 +136,21 @@
         let dashboardSubTab = 'comercial';
         let selectedPeriod = null; 
         let isAdmin = false; 
-        const ADMIN_PIN = "1234"; // <-- CAMBIA ESTO PARA LA CONTRASEÑA
+        const ADMIN_PIN = "1234"; 
         let chartInstances = {}; 
 
         const PUNTOS_VENTA = { deposito: 'Depósito', concordia: 'Local Concordia', chajari: 'Local Chajarí', tendens: 'Tendens' };
         const monthOrder = { 'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12 };
         const mesesList = Object.keys(monthOrder);
+
+        // --- SISTEMA DE TEMA CLARO/OSCURO ---
+        window.toggleTheme = () => {
+            const html = document.documentElement;
+            html.classList.toggle('dark');
+            const isDark = html.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            render(); // Re-renderizamos para que los gráficos actualicen sus colores
+        };
 
         window.toggleAdmin = () => {
             if (isAdmin) { isAdmin = false; if (activeTab === 'cargaVentas' || activeTab === 'cargaStock') activeTab = 'dashboard'; render(); }
@@ -122,13 +164,9 @@
         if (auth) {
             const initAuth = async () => {
                 try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth); // Esto es lo que usa el celular/incógnito
-                    }
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                    else await signInAnonymously(auth);
                 } catch (error) {
-                    console.error("Error Auth:", error);
                     document.getElementById('cloud-status').innerHTML = '<i data-lucide="alert-triangle" class="w-4 h-4"></i> Bloqueado por Firebase';
                     document.getElementById('cloud-status').className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-red-500 flex items-center gap-1";
                     lucide.createIcons();
@@ -141,7 +179,7 @@
                 const statusEl = document.getElementById('cloud-status');
                 if (user) {
                     statusEl.innerHTML = '<i data-lucide="cloud" class="w-4 h-4"></i> Nube Activa';
-                    statusEl.className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-emerald-600 flex items-center gap-1";
+                    statusEl.className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1";
                     lucide.createIcons();
                     
                     onSnapshot(getDbCollection(), (snapshot) => {
@@ -153,7 +191,7 @@
                         }
                         render();
                     }, (err) => {
-                        statusEl.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i> Sin Permisos (Reglas)';
+                        statusEl.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i> Sin Permisos';
                         statusEl.className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-red-500 flex items-center gap-1";
                         lucide.createIcons();
                     });
@@ -300,9 +338,9 @@
             if(!container) return;
             container.innerHTML = formState.stock.map((item, idx) => `
                 <div class="flex gap-2 items-center">
-                    <div class="flex-[2]"><input type="text" placeholder="Rubro" class="w-full p-2 border rounded-lg text-sm" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required /></div>
-                    <div class="flex-1"><input type="text" placeholder="Cant." class="w-full p-2 border rounded-lg text-center text-sm" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required /></div>
-                    <div class="flex-[1.5] relative"><span class="absolute left-2 top-2 text-gray-400 text-sm">$</span><input type="text" placeholder="Valor" class="w-full pl-5 p-2 border rounded-lg text-sm font-medium" value="${item.valor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required /></div>
+                    <div class="flex-[2]"><input type="text" placeholder="Rubro" class="w-full p-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required /></div>
+                    <div class="flex-1"><input type="text" placeholder="Cant." class="w-full p-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-center text-sm text-gray-900 dark:text-white" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required /></div>
+                    <div class="flex-[1.5] relative"><span class="absolute left-2 top-2 text-gray-400 text-sm">$</span><input type="text" placeholder="Valor" class="w-full pl-5 p-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-sm font-medium text-gray-900 dark:text-white" value="${item.valor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required /></div>
                     ${formState.stock.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2 text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : '<div class="w-8"></div>'}
                 </div>
             `).join('');
@@ -323,16 +361,21 @@
             const btnAdmin = document.getElementById('btn-admin');
             if (btnAdmin) {
                 btnAdmin.innerHTML = isAdmin ? `<i data-lucide="unlock" class="w-4 h-4"></i> <span class="hidden sm:inline">Modo Edición</span>` : `<i data-lucide="lock" class="w-4 h-4"></i> <span class="hidden sm:inline">Modo Lectura</span>`;
-                btnAdmin.className = isAdmin ? "flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition shadow-sm font-medium text-sm" : "flex items-center gap-2 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-200 transition shadow-sm font-medium text-sm";
+                btnAdmin.className = isAdmin 
+                    ? "flex items-center gap-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-4 py-2 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition shadow-sm font-medium text-sm" 
+                    : "flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm font-medium text-sm";
             }
 
             const nav = ['dashboard', 'cargaVentas', 'cargaStock', 'historial'];
-            nav.forEach(t => { const el = document.getElementById(`tab-${t}`); if(el) el.className = (t === activeTab) ? "tab-active py-4 px-1 text-sm flex items-center gap-2" : "py-4 px-1 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-2"; });
+            nav.forEach(t => { 
+                const el = document.getElementById(`tab-${t}`); 
+                if(el) el.className = (t === activeTab) ? "tab-active py-4 px-1 text-sm flex items-center gap-2" : "py-4 px-1 text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center gap-2"; 
+            });
 
             if (activeTab === 'dashboard') {
                 const periods = getSortedPeriods();
                 const d = getDiagnosticData();
-                if (periods.length === 0) { main.innerHTML = `<div class="text-center py-20 bg-white rounded-xl shadow-sm border max-w-2xl mx-auto mt-10"><i data-lucide="bar-chart-2" class="mx-auto w-16 h-16 text-fuchsia-300 mb-4"></i><h3 class="text-xl font-bold">No hay datos en la nube</h3></div>`; return; }
+                if (periods.length === 0) { main.innerHTML = `<div class="text-center py-20 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 max-w-2xl mx-auto mt-10"><i data-lucide="bar-chart-2" class="mx-auto w-16 h-16 text-fuchsia-400 mb-4"></i><h3 class="text-xl font-bold dark:text-white">No hay datos en la nube</h3></div>`; return; }
                 
                 document.getElementById('export-btn-container').style.display = 'block';
                 const showComercial = dashboardSubTab === 'comercial' || dashboardSubTab === 'completo';
@@ -346,58 +389,58 @@
                     <div class="space-y-6 animate-in slide-in-from-top-2">
                         <div class="flex overflow-x-auto gap-4 pb-4 print-hidden no-scrollbar">
                             ${periods.map(p => `
-                                <div onclick="setSelectedPeriod('${p.id}')" class="month-card flex-shrink-0 min-w-[200px] bg-white p-4 rounded-2xl shadow-sm ${selectedPeriod === p.id ? 'active' : ''}">
-                                    <p class="text-[10px] text-gray-400 font-bold uppercase mb-1">${p.año}</p>
-                                    <h4 class="text-lg font-black text-slate-800 mb-2">${p.mes}</h4>
-                                    <p class="text-[10px] text-indigo-500 font-bold uppercase mb-0.5">Capital Global</p>
-                                    <p class="text-sm font-bold text-slate-600">${formatCurrency(p.capital)}</p>
+                                <div onclick="setSelectedPeriod('${p.id}')" class="month-card flex-shrink-0 min-w-[200px] bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm ${selectedPeriod === p.id ? 'active dark:border-blue-500 dark:bg-blue-900/20' : 'dark:border-slate-700'}">
+                                    <p class="text-[10px] text-gray-400 dark:text-slate-400 font-bold uppercase mb-1">${p.año}</p>
+                                    <h4 class="text-lg font-black text-slate-800 dark:text-white mb-2">${p.mes}</h4>
+                                    <p class="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase mb-0.5">Capital Global</p>
+                                    <p class="text-sm font-bold text-slate-600 dark:text-slate-300">${formatCurrency(p.capital)}</p>
                                 </div>
                             `).join('')}
                         </div>
 
-                        <div class="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100 w-fit mx-auto print-hidden mb-6">
-                            <button onclick="switchDashboardSubTab('comercial')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='comercial'?'subtab-active':'text-gray-400'}">ANÁLISIS COMERCIAL</button>
-                            <button onclick="switchDashboardSubTab('capital')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='capital'?'subtab-active':'text-gray-400'}">ANÁLISIS DE CAPITAL</button>
-                            <button onclick="switchDashboardSubTab('completo')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='completo'?'subtab-active':'text-gray-400'}">INFORME COMPLETO</button>
+                        <div class="flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 w-fit mx-auto print-hidden mb-6">
+                            <button onclick="switchDashboardSubTab('comercial')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='comercial'?'subtab-active':'text-gray-400 dark:text-slate-400'}">ANÁLISIS COMERCIAL</button>
+                            <button onclick="switchDashboardSubTab('capital')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='capital'?'subtab-active':'text-gray-400 dark:text-slate-400'}">ANÁLISIS DE CAPITAL</button>
+                            <button onclick="switchDashboardSubTab('completo')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='completo'?'subtab-active':'text-gray-400 dark:text-slate-400'}">INFORME COMPLETO</button>
                         </div>
 
                         ${showComercial ? `
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-emerald-500"><p class="text-[10px] text-gray-500 font-bold uppercase">Facturación Locales (${d.lastMonthString})</p><h3 class="text-xl font-black text-slate-800">${formatCurrency(d.tV)}</h3><p class="text-xs text-emerald-600">${formatUSD(d.tV/d.cotiz)}</p></div>
-                            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-amber-500"><p class="text-[10px] text-gray-500 font-bold uppercase">Ticket Promedio</p><h3 class="text-xl font-black text-slate-800">${formatCurrency(d.ticketPromedio)}</h3></div>
-                            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500"><p class="text-[10px] text-gray-500 font-bold uppercase">Eficiencia UPT</p><h3 class="text-xl font-black text-slate-800">${d.unidadesTicket.toFixed(2)} u.</h3></div>
+                            <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 dark:border-emerald-400"><p class="text-[10px] text-gray-500 dark:text-slate-400 font-bold uppercase">Facturación Locales (${d.lastMonthString})</p><h3 class="text-xl font-black text-slate-800 dark:text-white">${formatCurrency(d.tV)}</h3><p class="text-xs text-emerald-600 dark:text-emerald-400">${formatUSD(d.tV/d.cotiz)}</p></div>
+                            <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border-l-4 border-amber-500 dark:border-amber-400"><p class="text-[10px] text-gray-500 dark:text-slate-400 font-bold uppercase">Ticket Promedio</p><h3 class="text-xl font-black text-slate-800 dark:text-white">${formatCurrency(d.ticketPromedio)}</h3></div>
+                            <div class="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border-l-4 border-blue-500 dark:border-blue-400"><p class="text-[10px] text-gray-500 dark:text-slate-400 font-bold uppercase">Eficiencia UPT</p><h3 class="text-xl font-black text-slate-800 dark:text-white">${d.unidadesTicket.toFixed(2)} u.</h3></div>
                         </div>
                         ` : ''}
 
                         ${showComercial ? `
                             <div class="space-y-6">
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Composición de Ventas</h3>
+                                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">Composición de Ventas</h3>
                                         <div class="chart-container"><canvas id="chartVentasMix"></canvas>${noDataCommercialOverlay}</div>
                                     </div>
-                                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Tráfico por Turno (Mañana vs Tarde)</h3>
+                                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">Tráfico por Turno (Mañana vs Tarde)</h3>
                                         <div class="chart-container"><canvas id="chartTurnos"></canvas>${noDataTurnosOverlay}</div>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Brecha de Metas (Real vs Objetivo)</h3>
+                                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">Brecha de Metas (Real vs Objetivo)</h3>
                                         <div class="chart-container"><canvas id="chartGap"></canvas>${noDataCommercialOverlay}</div>
                                     </div>
-                                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">UPT por Local</h3>
+                                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">UPT por Local</h3>
                                         <div class="chart-container"><canvas id="chartUPT"></canvas>${noDataCommercialOverlay}</div>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Variación Mensual Ventas</h3>
+                                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">Variación Mensual Ventas</h3>
                                         <div class="chart-container"><canvas id="chartMomComercial"></canvas></div>
                                     </div>
-                                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Evolución Histórica de Ventas (YoY)</h3>
+                                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">Evolución Histórica de Ventas (YoY)</h3>
                                         <div class="chart-container"><canvas id="chartYoy"></canvas></div>
                                     </div>
                                 </div>
@@ -407,23 +450,23 @@
                         ${showCapital ? `
                             <div class="space-y-6">
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Distribución del Capital</h3>
+                                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">Distribución del Capital</h3>
                                         <div class="chart-container"><canvas id="chartCapitalMix"></canvas>${noDataCapitalOverlay}</div>
                                     </div>
-                                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Valor Unitario por Rubro</h3>
+                                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                        <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">Valor Unitario por Rubro</h3>
                                         <div class="chart-container"><canvas id="chartRubroAvg"></canvas>${noDataCapitalOverlay}</div>
                                     </div>
                                 </div>
-                                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                    <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Variación Mensual Capital</h3>
+                                <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                    <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 dark:text-slate-400 tracking-widest">Variación Mensual Capital</h3>
                                     <div class="chart-container"><canvas id="chartMomCapital"></canvas></div>
                                 </div>
                             </div>
                         ` : ''}
 
-                        <div class="bg-slate-900 text-white p-8 rounded-2xl shadow-xl mb-8">
+                        <div class="bg-slate-900 dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mb-8 border dark:border-slate-800">
                             <div class="flex items-center gap-3 mb-6"><div class="p-2 bg-blue-500/20 rounded-lg"><i data-lucide="file-text" class="text-blue-400"></i></div><h3 class="text-lg font-bold">Diagnóstico Ejecutivo - ${d.lastMonthString}</h3></div>
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm text-slate-300 leading-relaxed">
                                 <div class="space-y-3"><p class="text-slate-400 uppercase font-bold tracking-widest text-[10px]">Comercial</p><p>Ventas totales: <strong>${formatCurrency(d.tV)}</strong>. Cumplimiento de metas: <strong>${d.cumplimiento.toFixed(1)}%</strong>. Ticket promedio registrado de <strong>${formatCurrency(d.ticketPromedio)}</strong>.</p></div>
@@ -436,27 +479,41 @@
             } else if (activeTab === 'cargaVentas') {
                 document.getElementById('export-btn-container').style.display = 'none';
                 const calcTarde = Math.max(0, window.parseInputNumber(formState.tickets) - window.parseInputNumber(formState.ticketsMañana));
-                main.innerHTML = `<div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border animate-in fade-in"><div class="mb-6 text-center"><h2 class="text-2xl font-bold text-gray-800">Carga de Ventas y Metas</h2><p class="text-gray-500 text-sm">Información transaccional mensual por local.</p></div><form onsubmit="submitGenericForm(event, 'ventas')" class="space-y-6"><div class="p-6 bg-slate-50 rounded-xl border border-slate-200"><label class="block text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label><select class="w-full p-3 text-xl font-bold border-2 rounded-xl border-blue-200 text-blue-800 outline-none" onchange="handleFormChange('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${formState.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select><div class="grid grid-cols-3 gap-3 mt-4"><div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mes</label><select class="w-full p-2 border rounded-lg text-sm" onchange="handleFormChange('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formState.mes===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Año</label><input type="number" class="w-full p-2 border rounded-lg text-sm" value="${formState.año}" onchange="handleFormChange('año', this.value)" required></div><div><label class="block text-[10px] font-bold text-emerald-500 uppercase mb-1">Dólar</label><input type="text" class="w-full p-2 border-emerald-200 border rounded-lg text-sm font-bold" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required></div></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="bg-blue-50 p-5 rounded-xl border border-blue-100 md:col-span-2"><label class="block text-xs font-bold text-blue-800 uppercase mb-2">Venta Real ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 border rounded-xl font-bold text-lg" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required></div><div class="bg-amber-50 p-5 rounded-xl border border-amber-100 md:col-span-2"><label class="block text-xs font-bold text-amber-800 uppercase mb-2">Meta ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 border rounded-xl font-bold text-lg" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required></div><div class="bg-purple-50 p-5 rounded-xl border border-purple-100 md:col-span-2"><label class="block text-xs font-bold text-purple-800 uppercase mb-2">Total Tickets</label><input type="text" class="w-full p-3 border rounded-xl font-bold" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required></div><div class="bg-purple-50 p-5 rounded-xl border border-purple-100 md:col-span-2"><label class="block text-xs font-bold text-purple-800 uppercase mb-2">Tickets Mañana</label><input type="text" class="w-full p-3 border rounded-xl font-bold" value="${formState.ticketsMañana}" onchange="handleFormChange('ticketsMañana', this.value)" required><p class="text-[10px] text-purple-600 mt-2 font-bold tracking-wide">TURNO TARDE: ${calcTarde}</p></div><div class="bg-fuchsia-50 p-5 rounded-xl border border-fuchsia-100 md:col-span-4"><label class="block text-xs font-bold text-fuchsia-800 uppercase mb-2">Total Unidades</label><input type="text" class="w-full p-3 border rounded-xl font-bold text-lg" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required></div></div><div class="flex justify-end"><button type="submit" class="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition">Guardar Ventas</button></div></form></div>`;
+                main.innerHTML = `<div class="max-w-3xl mx-auto bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm border dark:border-slate-700 animate-in fade-in"><div class="mb-6 text-center"><h2 class="text-2xl font-bold text-gray-800 dark:text-white">Carga de Ventas y Metas</h2><p class="text-gray-500 dark:text-slate-400 text-sm">Información transaccional mensual por local.</p></div><form onsubmit="submitGenericForm(event, 'ventas')" class="space-y-6"><div class="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700"><label class="block text-center font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label><select class="w-full p-3 text-xl font-bold border-2 rounded-xl bg-white dark:bg-slate-800 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-400 outline-none" onchange="handleFormChange('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${formState.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select><div class="grid grid-cols-3 gap-3 mt-4"><div><label class="block text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Mes</label><select class="w-full p-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white" onchange="handleFormChange('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formState.mes===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label class="block text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Año</label><input type="number" class="w-full p-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white" value="${formState.año}" onchange="handleFormChange('año', this.value)" required></div><div><label class="block text-[10px] font-bold text-emerald-500 uppercase mb-1">Dólar</label><input type="text" class="w-full p-2 bg-white dark:bg-slate-700 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm font-bold text-gray-900 dark:text-white" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required></div></div></div><div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div class="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-800/50 md:col-span-2"><label class="block text-xs font-bold text-blue-800 dark:text-blue-400 uppercase mb-2">Venta Real ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white rounded-xl font-bold text-lg" value="${formState.ventas}" onchange="handleFormChange('ventas', this.value)" required></div><div class="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-xl border border-amber-100 dark:border-amber-800/50 md:col-span-2"><label class="block text-xs font-bold text-amber-800 dark:text-amber-400 uppercase mb-2">Meta ($)</label><input type="text" placeholder="Pegar Excel..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white rounded-xl font-bold text-lg" value="${formState.objetivo}" onchange="handleFormChange('objetivo', this.value)" required></div><div class="bg-purple-50 dark:bg-purple-900/20 p-5 rounded-xl border border-purple-100 dark:border-purple-800/50 md:col-span-2"><label class="block text-xs font-bold text-purple-800 dark:text-purple-400 uppercase mb-2">Total Tickets</label><input type="text" class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white rounded-xl font-bold" value="${formState.tickets}" onchange="handleFormChange('tickets', this.value)" required></div><div class="bg-purple-50 dark:bg-purple-900/20 p-5 rounded-xl border border-purple-100 dark:border-purple-800/50 md:col-span-2"><label class="block text-xs font-bold text-purple-800 dark:text-purple-400 uppercase mb-2">Tickets Mañana</label><input type="text" class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white rounded-xl font-bold" value="${formState.ticketsMañana}" onchange="handleFormChange('ticketsMañana', this.value)" required><p class="text-[10px] text-purple-600 dark:text-purple-400 mt-2 font-bold tracking-wide">TURNO TARDE: ${calcTarde}</p></div><div class="bg-fuchsia-50 dark:bg-fuchsia-900/20 p-5 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800/50 md:col-span-4"><label class="block text-xs font-bold text-fuchsia-800 dark:text-fuchsia-400 uppercase mb-2">Total Unidades</label><input type="text" class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white rounded-xl font-bold text-lg" value="${formState.productosVendidos}" onchange="handleFormChange('productosVendidos', this.value)" required></div></div><div class="flex justify-end"><button type="submit" class="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-10 py-4 rounded-xl font-bold uppercase shadow-xl transition">Guardar Ventas</button></div></form></div>`;
             } else if (activeTab === 'cargaStock') {
                 document.getElementById('export-btn-container').style.display = 'none';
-                main.innerHTML = `<div class="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border animate-in fade-in"><div class="mb-6 text-center"><h2 class="text-2xl font-bold text-gray-800">Carga de Inventario (Stock)</h2><p class="text-gray-500 text-sm">Valorización de activos inmovilizados por punto.</p></div><form onsubmit="submitGenericForm(event, 'stock')" class="space-y-6"><div class="p-6 bg-slate-50 rounded-xl border border-slate-200"><label class="block text-center font-bold text-slate-500 uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label><select class="w-full p-3 text-xl font-bold border-2 rounded-xl border-indigo-200 text-indigo-800 outline-none" onchange="handleFormChange('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).map(([k,v]) => `<option value="${k}" ${formState.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select><div class="grid grid-cols-3 gap-3 mt-4"><div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mes</label><select class="w-full p-2 border rounded-lg text-sm" onchange="handleFormChange('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formState.mes===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Año</label><input type="number" class="w-full p-2 border rounded-lg text-sm" value="${formState.año}" onchange="handleFormChange('año', this.value)" required></div><div><label class="block text-[10px] font-bold text-emerald-500 uppercase mb-1">Dólar</label><input type="text" class="w-full p-2 border-emerald-200 border rounded-lg text-sm font-bold" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required></div></div></div><div class="bg-emerald-50 p-6 rounded-xl border border-emerald-100"><div class="flex justify-between items-center mb-4"><div><h3 class="text-sm font-bold text-emerald-900 uppercase">Detalle Rubros</h3><p id="stock-sum-display" class="text-lg font-black text-emerald-600">Total: $0,00</p></div><button type="button" onClick="addStockRow()" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold">+ Añadir Rubro</button></div><div id="stock-rows-container" class="space-y-2"></div></div><div class="flex justify-end"><button type="submit" class="bg-indigo-900 text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition">Guardar Stock</button></div></form></div>`;
+                main.innerHTML = `<div class="max-w-3xl mx-auto bg-white dark:bg-slate-800 p-8 rounded-xl shadow-sm border dark:border-slate-700 animate-in fade-in"><div class="mb-6 text-center"><h2 class="text-2xl font-bold text-gray-800 dark:text-white">Carga de Inventario (Stock)</h2><p class="text-gray-500 dark:text-slate-400 text-sm">Valorización de activos inmovilizados por punto.</p></div><form onsubmit="submitGenericForm(event, 'stock')" class="space-y-6"><div class="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700"><label class="block text-center font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label><select class="w-full p-3 text-xl font-bold border-2 rounded-xl bg-white dark:bg-slate-800 border-indigo-200 dark:border-indigo-800 text-indigo-800 dark:text-indigo-400 outline-none" onchange="handleFormChange('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).map(([k,v]) => `<option value="${k}" ${formState.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select><div class="grid grid-cols-3 gap-3 mt-4"><div><label class="block text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Mes</label><select class="w-full p-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white" onchange="handleFormChange('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formState.mes===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label class="block text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Año</label><input type="number" class="w-full p-2 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white" value="${formState.año}" onchange="handleFormChange('año', this.value)" required></div><div><label class="block text-[10px] font-bold text-emerald-500 uppercase mb-1">Dólar</label><input type="text" class="w-full p-2 bg-white dark:bg-slate-700 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm font-bold text-gray-900 dark:text-white" value="${formState.cotizacionDolar}" onchange="handleFormChange('cotizacionDolar', this.value)" required></div></div></div><div class="bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-xl border border-emerald-100 dark:border-emerald-800/50"><div class="flex justify-between items-center mb-4"><div><h3 class="text-sm font-bold text-emerald-900 dark:text-emerald-400 uppercase">Detalle Rubros</h3><p id="stock-sum-display" class="text-lg font-black text-emerald-600 dark:text-emerald-400">Total: $0,00</p></div><button type="button" onClick="addStockRow()" class="bg-emerald-600 dark:bg-emerald-500 text-white px-3 py-2 rounded-lg text-xs font-bold">+ Añadir Rubro</button></div><div id="stock-rows-container" class="space-y-2"></div></div><div class="flex justify-end"><button type="submit" class="bg-indigo-900 dark:bg-indigo-500 text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl transition">Guardar Stock</button></div></form></div>`;
                 window.renderFormStockRows();
             } else {
                 document.getElementById('export-btn-container').style.display = 'none';
-                main.innerHTML = `<div class="bg-white rounded-xl shadow-sm border overflow-hidden animate-in fade-in"><div class="p-6 border-b bg-slate-50 font-bold uppercase text-xs tracking-widest">Historial de Cargas</div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-white text-gray-400 border-b"><th class="p-4">Período</th><th class="p-4">Punto</th><th class="p-4 text-right">Venta</th><th class="p-4 text-right">Capital</th>${isAdmin ? `<th class="p-4 text-center">Acción</th>` : ''}</tr></thead><tbody>${appData.slice().sort((a,b)=>b.dbId-a.dbId).map(r=>`<tr class="border-b hover:bg-slate-50"><td class="p-4 font-bold">${r.mes} ${r.año}</td><td class="p-4 text-blue-600 font-bold">${PUNTOS_VENTA[r.puntoVenta]}</td><td class="p-4 text-right font-bold text-emerald-600">${r.ventas ? formatCurrency(r.ventas) : '-'}</td><td class="p-4 text-right font-bold text-indigo-700">${r.valorMercaderia ? formatCurrency(r.valorMercaderia) : '-'}</td>${isAdmin ? `<td class="p-4 text-center"><button onclick="deleteRecord('${r.dbId}')" class="text-red-300 hover:text-red-600 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>` : ''}</tr>`).join('')}</tbody></table></div></div>`;
+                main.innerHTML = `<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden animate-in fade-in"><div class="p-6 border-b border-gray-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold uppercase text-xs tracking-widest text-slate-800 dark:text-slate-200">Historial de Cargas</div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-white dark:bg-slate-800 text-gray-400 dark:text-slate-400 border-b border-gray-100 dark:border-slate-700"><th class="p-4">Período</th><th class="p-4">Punto</th><th class="p-4 text-right">Venta</th><th class="p-4 text-right">Capital</th>${isAdmin ? `<th class="p-4 text-center">Acción</th>` : ''}</tr></thead><tbody>${appData.slice().sort((a,b)=>b.dbId-a.dbId).map(r=>`<tr class="border-b border-gray-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/50"><td class="p-4 font-bold text-slate-800 dark:text-slate-200">${r.mes} ${r.año}</td><td class="p-4 text-blue-600 dark:text-blue-400 font-bold">${PUNTOS_VENTA[r.puntoVenta]}</td><td class="p-4 text-right font-bold text-emerald-600 dark:text-emerald-400">${r.ventas ? formatCurrency(r.ventas) : '-'}</td><td class="p-4 text-right font-bold text-indigo-700 dark:text-indigo-400">${r.valorMercaderia ? formatCurrency(r.valorMercaderia) : '-'}</td>${isAdmin ? `<td class="p-4 text-center"><button onclick="deleteRecord('${r.dbId}')" class="text-red-400 hover:text-red-500 transition"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button></td>` : ''}</tr>`).join('')}</tbody></table></div></div>`;
             }
             lucide.createIcons();
         }
 
         function initCharts(d) {
-            const chartCfg = (id, type, data, options) => { if (chartInstances[id]) chartInstances[id].destroy(); const ctx = document.getElementById(id); if (ctx) chartInstances[id] = new Chart(ctx.getContext('2d'), { type, data, options }); };
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? '#334155' : '#e2e8f0';
+            const textColor = isDark ? '#94a3b8' : '#64748b';
+
+            // Configuración global por defecto para Chart.js
+            Chart.defaults.color = textColor;
+            Chart.defaults.scale.grid.color = gridColor;
+            Chart.defaults.scale.ticks.color = textColor;
+
+            const chartCfg = (id, type, data, options) => { 
+                if (chartInstances[id]) chartInstances[id].destroy(); 
+                const ctx = document.getElementById(id); 
+                if (ctx) chartInstances[id] = new Chart(ctx.getContext('2d'), { type, data, options }); 
+            };
+            
             const locals = d.momIndiv.filter(m => !m.isDepo);
 
             if (document.getElementById('chartVentasMix')) {
                 chartCfg('chartVentasMix', 'doughnut', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.vC_sales), backgroundColor: ['#0284c7', '#16a34a', '#7c3aed'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
                 chartCfg('chartTurnos', 'doughnut', { labels: ['Mañana', 'Tarde'], datasets: [{ data: [d.tT_manana, d.tT_tarde], backgroundColor: ['#f59e0b', '#8b5cf6'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
-                chartCfg('chartGap', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ label: 'Real', data: locals.map(l=>l.vC_sales), backgroundColor: '#3b82f6', borderRadius: 4 }, { label: 'Meta', data: locals.map(l=>l.obj), backgroundColor: '#e2e8f0', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
-                chartCfg('chartMomComercial', 'bar', { labels: locals.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: locals.map(m=>m.vP_sales), backgroundColor: '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: locals.map(m=>m.vC_sales), backgroundColor: '#3b82f6', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                chartCfg('chartGap', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ label: 'Real', data: locals.map(l=>l.vC_sales), backgroundColor: '#3b82f6', borderRadius: 4 }, { label: 'Meta', data: locals.map(l=>l.obj), backgroundColor: isDark ? '#475569' : '#e2e8f0', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                chartCfg('chartMomComercial', 'bar', { labels: locals.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: locals.map(m=>m.vP_sales), backgroundColor: isDark ? '#475569' : '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: locals.map(m=>m.vC_sales), backgroundColor: '#3b82f6', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
                 chartCfg('chartUPT', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.tickets > 0 ? l.units/l.tickets : 0), backgroundColor: '#8b5cf6', borderRadius: 20 }] }, { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } });
                 const yoyG = {}; appData.forEach(r => { if(r.puntoVenta!=='deposito'){ if(!yoyG[r.mes]) yoyG[r.mes]={name:r.mes}; yoyG[r.mes][r.año]=(yoyG[r.mes][r.año]||0)+(r.ventas||0); } });
                 const yoyS = Object.values(yoyG).sort((a,b)=>monthOrder[a.name]-monthOrder[b.name]);
@@ -467,7 +524,7 @@
             if (document.getElementById('chartCapitalMix')) {
                 chartCfg('chartCapitalMix', 'doughnut', { labels: d.momIndiv.map(m=>m.nombre), datasets: [{ data: d.momIndiv.map(m=>m.vC_cap), backgroundColor: ['#64748b', '#0284c7', '#16a34a', '#7c3aed'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
                 chartCfg('chartRubroAvg', 'bar', { labels: d.catStats.map(c=>c.name), datasets: [{ label: 'Valor Prom. Unidad', data: d.catStats.map(c=>c.avg), backgroundColor: '#10b981', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
-                chartCfg('chartMomCapital', 'bar', { labels: d.momIndiv.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: d.momIndiv.map(m=>m.vP_cap), backgroundColor: '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: d.momIndiv.map(m=>m.vC_cap), backgroundColor: '#3b82f6', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
+                chartCfg('chartMomCapital', 'bar', { labels: d.momIndiv.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: d.momIndiv.map(m=>m.vP_cap), backgroundColor: isDark ? '#475569' : '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: d.momIndiv.map(m=>m.vC_cap), backgroundColor: '#3b82f6', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
             }
         }
         render();
