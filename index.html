@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistemas-Informes</title>
-    <!-- Agregamos el Favicon usando el logo de la empresa -->
     <link rel="icon" href="logo.png" type="image/png">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -24,6 +23,8 @@
         .month-card.active { border-color: #3b82f6; background-color: #eff6ff; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .chart-container { position: relative; height: 250px; width: 100%; }
+        .empty-chart-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.8); color: #94a3b8; font-size: 0.75rem; font-weight: 600; border-radius: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; pointer-events: none; }
     </style>
 </head>
 <body class="bg-fuchsia-100 font-sans text-gray-900 pb-12">
@@ -31,7 +32,7 @@
     <!-- Header -->
     <header class="bg-white shadow-sm print-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between relative">
-            <img src="ModaShop.png" alt="Logo de la Empresa" class="h-16 object-contain" />
+            <img src="logo.png" alt="Logo de la Empresa" class="h-16 object-contain" />
             <div class="flex items-center gap-3">
                 <button onclick="toggleAdmin()" id="btn-admin" class="flex items-center gap-2 bg-slate-100 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-200 transition shadow-sm font-medium text-sm">
                     <i data-lucide="lock" class="w-4 h-4"></i> <span class="hidden sm:inline">Modo Lectura</span>
@@ -72,10 +73,11 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = {
+        // Conexión dinámica e híbrida (ModaShop + Canvas)
+        let firebaseConfig = {
             apiKey: "AIzaSyB4X4-HY_QTD9_4LGO244mGJidMdSA7lrA",
             authDomain: "tablero-valorizado-a6c2d.firebaseapp.com",
             projectId: "tablero-valorizado-a6c2d",
@@ -83,13 +85,17 @@
             messagingSenderId: "66788546050",
             appId: "1:66788546050:web:e3b8a5fe79f3327b77b91b"
         };
+        const isCanvasEnv = typeof __firebase_config !== 'undefined';
+        if (isCanvasEnv) { firebaseConfig = JSON.parse(__firebase_config); }
 
-        let app, auth, db;
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-        } catch(e) { console.error(e); }
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'mi-tablero';
+
+        // Función constructora de rutas a prueba de fallos
+        const getDbCollection = () => isCanvasEnv ? collection(db, 'artifacts', canvasAppId, 'public', 'data', 'registros_mensuales') : collection(db, 'registros_mensuales');
+        const getDbDoc = (docId) => isCanvasEnv ? doc(db, 'artifacts', canvasAppId, 'public', 'data', 'registros_mensuales', docId) : doc(db, 'registros_mensuales', docId);
 
         let currentUser = null;
         let appData = [];
@@ -97,7 +103,7 @@
         let dashboardSubTab = 'comercial';
         let selectedPeriod = null; 
         let isAdmin = false; 
-        const ADMIN_PIN = "1234"; 
+        const ADMIN_PIN = "1234"; // <-- CAMBIA ESTO PARA LA CONTRASEÑA
         let chartInstances = {}; 
 
         const PUNTOS_VENTA = { deposito: 'Depósito', concordia: 'Local Concordia', chajari: 'Local Chajarí', tendens: 'Tendens' };
@@ -114,7 +120,22 @@
         };
 
         if (auth) {
-            signInAnonymously(auth).catch(console.error);
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth); // Esto es lo que usa el celular/incógnito
+                    }
+                } catch (error) {
+                    console.error("Error Auth:", error);
+                    document.getElementById('cloud-status').innerHTML = '<i data-lucide="alert-triangle" class="w-4 h-4"></i> Bloqueado por Firebase';
+                    document.getElementById('cloud-status').className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-red-500 flex items-center gap-1";
+                    lucide.createIcons();
+                }
+            };
+            initAuth();
+
             onAuthStateChanged(auth, (user) => {
                 currentUser = user;
                 const statusEl = document.getElementById('cloud-status');
@@ -122,7 +143,8 @@
                     statusEl.innerHTML = '<i data-lucide="cloud" class="w-4 h-4"></i> Nube Activa';
                     statusEl.className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-emerald-600 flex items-center gap-1";
                     lucide.createIcons();
-                    onSnapshot(collection(db, 'registros_mensuales'), (snapshot) => {
+                    
+                    onSnapshot(getDbCollection(), (snapshot) => {
                         appData = [];
                         snapshot.forEach(documento => { appData.push({ dbId: documento.id, ...documento.data() }); });
                         if (!selectedPeriod && appData.length > 0) {
@@ -130,6 +152,10 @@
                             selectedPeriod = periods[0].id;
                         }
                         render();
+                    }, (err) => {
+                        statusEl.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i> Sin Permisos (Reglas)';
+                        statusEl.className = "absolute left-4 top-1/2 transform -translate-y-1/2 text-xs font-bold text-red-500 flex items-center gap-1";
+                        lucide.createIcons();
                     });
                 }
             });
@@ -181,7 +207,6 @@
             e.preventDefault();
             if (!currentUser) return;
             const docId = `${formState.mes}-${formState.año}-${formState.puntoVenta}`;
-            const docRef = doc(db, 'registros_mensuales', docId);
             let dataToSave = { mes: formState.mes, año: formState.año, puntoVenta: formState.puntoVenta, cotizacionDolar: window.parseInputNumber(formState.cotizacionDolar) || 1 };
             if (type === 'ventas') {
                 dataToSave.ventas = window.parseInputNumber(formState.ventas);
@@ -197,13 +222,13 @@
                 dataToSave.stock = stockLimpio;
                 dataToSave.valorMercaderia = stockLimpio.reduce((acc, item) => acc + item.valor, 0);
             }
-            await setDoc(docRef, dataToSave, { merge: true });
+            await setDoc(getDbDoc(docId), dataToSave, { merge: true });
             if(type === 'ventas') { formState.ventas=''; formState.objetivo=''; formState.tickets=''; formState.ticketsMañana=''; formState.productosVendidos=''; }
             else { formState.stock = [{ categoria: '', cantidad: '', valor: '' }]; }
             window.switchTab('historial');
         };
 
-        window.deleteRecord = async (dbId) => { if(confirm('¿Seguro que deseas eliminar este registro?')) await deleteDoc(doc(db, 'registros_mensuales', dbId)); };
+        window.deleteRecord = async (dbId) => { if(confirm('¿Eliminar registro completo?')) await deleteDoc(getDbDoc(dbId)); };
 
         function getSortedPeriods() {
             const periods = Array.from(new Set(appData.map(d => `${d.mes}-${d.año}`)));
@@ -313,10 +338,9 @@
                 const showComercial = dashboardSubTab === 'comercial' || dashboardSubTab === 'completo';
                 const showCapital = dashboardSubTab === 'capital' || dashboardSubTab === 'completo';
 
-                // Overlay HTML para gráficos sin datos
-                const noDataCommercialOverlay = d.tV === 0 ? '<div class="absolute inset-0 flex items-center justify-center bg-white/90 text-gray-400 font-bold uppercase text-xs z-10 rounded-xl">Sin datos comerciales este mes</div>' : '';
-                const noDataTurnosOverlay = (d.tT_manana + d.tT_tarde) === 0 ? '<div class="absolute inset-0 flex items-center justify-center bg-white/90 text-gray-400 font-bold uppercase text-xs z-10 rounded-xl">Sin datos de turnos</div>' : '';
-                const noDataCapitalOverlay = d.tM === 0 ? '<div class="absolute inset-0 flex items-center justify-center bg-white/90 text-gray-400 font-bold uppercase text-xs z-10 rounded-xl">Sin datos de capital este mes</div>' : '';
+                const noDataCommercialOverlay = d.tV === 0 ? '<div class="empty-chart-overlay">Sin datos comerciales este mes</div>' : '';
+                const noDataTurnosOverlay = (d.tT_manana + d.tT_tarde) === 0 ? '<div class="empty-chart-overlay">Sin datos de turnos</div>' : '';
+                const noDataCapitalOverlay = d.tM === 0 ? '<div class="empty-chart-overlay">Sin datos de capital este mes</div>' : '';
 
                 main.innerHTML = `
                     <div class="space-y-6 animate-in slide-in-from-top-2">
@@ -350,31 +374,31 @@
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Composición de Ventas</h3>
-                                        <div class="relative w-full h-[250px]"><canvas id="chartVentasMix"></canvas>${noDataCommercialOverlay}</div>
+                                        <div class="chart-container"><canvas id="chartVentasMix"></canvas>${noDataCommercialOverlay}</div>
                                     </div>
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Tráfico por Turno (Mañana vs Tarde)</h3>
-                                        <div class="relative w-full h-[250px]"><canvas id="chartTurnos"></canvas>${noDataTurnosOverlay}</div>
+                                        <div class="chart-container"><canvas id="chartTurnos"></canvas>${noDataTurnosOverlay}</div>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Brecha de Metas (Real vs Objetivo)</h3>
-                                        <div class="relative w-full h-[250px]"><canvas id="chartGap"></canvas>${noDataCommercialOverlay}</div>
+                                        <div class="chart-container"><canvas id="chartGap"></canvas>${noDataCommercialOverlay}</div>
                                     </div>
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">UPT por Local</h3>
-                                        <div class="relative w-full h-[250px]"><canvas id="chartUPT"></canvas>${noDataCommercialOverlay}</div>
+                                        <div class="chart-container"><canvas id="chartUPT"></canvas>${noDataCommercialOverlay}</div>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Variación Mensual Ventas</h3>
-                                        <div class="relative w-full h-[250px]"><canvas id="chartMomComercial"></canvas></div>
+                                        <div class="chart-container"><canvas id="chartMomComercial"></canvas></div>
                                     </div>
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Evolución Histórica de Ventas (YoY)</h3>
-                                        <div class="relative w-full h-[250px]"><canvas id="chartYoy"></canvas></div>
+                                        <div class="chart-container"><canvas id="chartYoy"></canvas></div>
                                     </div>
                                 </div>
                             </div>
@@ -385,16 +409,16 @@
                                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Distribución del Capital</h3>
-                                        <div class="relative w-full h-[250px]"><canvas id="chartCapitalMix"></canvas>${noDataCapitalOverlay}</div>
+                                        <div class="chart-container"><canvas id="chartCapitalMix"></canvas>${noDataCapitalOverlay}</div>
                                     </div>
                                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                         <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Valor Unitario por Rubro</h3>
-                                        <div class="relative w-full h-[250px]"><canvas id="chartRubroAvg"></canvas>${noDataCapitalOverlay}</div>
+                                        <div class="chart-container"><canvas id="chartRubroAvg"></canvas>${noDataCapitalOverlay}</div>
                                     </div>
                                 </div>
                                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                     <h3 class="font-bold text-xs mb-4 uppercase text-gray-400 tracking-widest">Variación Mensual Capital</h3>
-                                    <div class="relative w-full h-[250px]"><canvas id="chartMomCapital"></canvas></div>
+                                    <div class="chart-container"><canvas id="chartMomCapital"></canvas></div>
                                 </div>
                             </div>
                         ` : ''}
