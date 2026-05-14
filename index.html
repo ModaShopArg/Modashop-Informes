@@ -146,7 +146,7 @@
         let dashboardSubTab = 'comercial';
         let selectedPeriod = null; 
         let isAdmin = false; 
-        const ADMIN_PIN = "292708"; 
+        const ADMIN_PIN = "1234"; 
         let chartInstances = {}; 
 
         const PUNTOS_VENTA = { deposito: 'Depósito', concordia: 'Local Concordia', chajari: 'Local Chajarí', tendens: 'Tendens' };
@@ -258,7 +258,6 @@
                 dataToSave.ventas = window.parseInputNumber(formState.ventas);
                 dataToSave.ventasMañana = window.parseInputNumber(formState.ventasMañana);
                 dataToSave.ventasTarde = Math.max(0, dataToSave.ventas - dataToSave.ventasMañana);
-                dataToSave.objetivo = window.parseInputNumber(formState.objetivo);
                 dataToSave.tickets = window.parseInputNumber(formState.tickets);
                 dataToSave.ticketsMañana = window.parseInputNumber(formState.ticketsMañana);
                 dataToSave.ticketsTarde = Math.max(0, dataToSave.tickets - dataToSave.ticketsMañana);
@@ -274,10 +273,9 @@
             
             await setDoc(getDbDoc(docId), dataToSave, { merge: true });
             
-            // Forzar actualización al nuevo período cargado
             selectedPeriod = `${formState.mes}-${formState.año}`;
 
-            if(type === 'ventas') { formState.ventas=''; formState.ventasMañana=''; formState.objetivo=''; formState.tickets=''; formState.ticketsMañana=''; formState.productosVendidos=''; }
+            if(type === 'ventas') { formState.ventas=''; formState.ventasMañana=''; formState.tickets=''; formState.ticketsMañana=''; formState.productosVendidos=''; }
             else { formState.stock = [{ categoria: '', cantidad: '', valor: '' }]; }
             
             window.switchTab('historial');
@@ -307,7 +305,7 @@
             const lastMonthData = appData.filter(d => d.mes === lastMonth && d.año === lastYear);
             const prevMonthData = prevPeriod ? appData.filter(d => d.mes === prevMonth && d.año === prevYear) : [];
 
-            let tV = 0, tObj = 0, tT = 0, tP = 0, tM = 0, cotiz = 1;
+            let tV = 0, tT = 0, tP = 0, tM = 0, cotiz = 1;
             let tM_prev = 0, cotiz_prev = 1;
             let tT_manana = 0, tT_tarde = 0;
             let tV_manana = 0, tV_tarde = 0;
@@ -317,7 +315,7 @@
                 tM += (Number(d.valorMercaderia) || 0);
                 if (Number(d.cotizacionDolar) > cotiz) cotiz = Number(d.cotizacionDolar);
                 if (d.puntoVenta !== 'deposito') { 
-                    tV += (d.ventas || 0); tObj += (d.objetivo || 0); tT += (d.tickets || 0); tP += (d.productosVendidos || 0); 
+                    tV += (d.ventas || 0); tT += (d.tickets || 0); tP += (d.productosVendidos || 0); 
                     tT_manana += (d.ticketsMañana || 0); tT_tarde += (d.ticketsTarde || 0);
                     tV_manana += (d.ventasMañana || 0); tV_tarde += (d.ventasTarde || 0);
                 }
@@ -341,12 +339,12 @@
                 const vC_cap = cur ? (cur.valorMercaderia || 0) : 0;
                 const vP_cap = pre ? (pre.valorMercaderia || 0) : 0;
                 const growth = isD ? (vP_cap > 0 ? ((vC_cap-vP_cap)/vP_cap)*100 : 0) : (vP_sales > 0 ? ((vC_sales-vP_sales)/vP_sales)*100 : 0);
-                return { key, nombre: PUNTOS_VENTA[key], vC_sales, vP_sales, vC_cap, vP_cap, growth, obj: cur?.objetivo || 0, tickets: cur?.tickets || 0, units: cur?.productosVendidos || 0, isDepo: isD };
+                return { key, nombre: PUNTOS_VENTA[key], vC_sales, vP_sales, vC_cap, vP_cap, growth, tickets: cur?.tickets || 0, units: cur?.productosVendidos || 0, isDepo: isD };
             });
 
             return {
                 lastMonthString: `${lastMonth} ${lastYear}`, prevMonthString: prevMonth ? `${prevMonth} ${prevYear}` : 'N/A',
-                tV, tM, tM_prev, cotiz, cotiz_prev, cumplimiento: tObj > 0 ? (tV/tObj)*100 : 0, ticketPromedio: tT > 0 ? tV/tT : 0, unidadesTicket: tT > 0 ? tP/tT : 0,
+                tV, tM, tM_prev, cotiz, cotiz_prev, ticketPromedio: tT > 0 ? tV/tT : 0, unidadesTicket: tT > 0 ? tP/tT : 0,
                 tT_manana, tT_tarde, tV_manana, tV_tarde, momIndiv, lastMonthData,
                 catStats: Object.keys(capPorCat).map(k => ({name: k, val: capPorCat[k].v, avg: capPorCat[k].c > 0 ? capPorCat[k].v/capPorCat[k].c : 0})).sort((a,b)=>b.val-a.val)
             };
@@ -505,8 +503,14 @@
                                 <h3 class="text-lg font-bold">Diagnóstico Ejecutivo - ${d.lastMonthString}</h3>
                             </div>
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm text-gray-300 dark:text-slate-400 leading-relaxed">
-                                <div class="space-y-3"><p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Comercial</p><p>Ventas totales: <strong class="text-white">${formatCurrency(d.tV)}</strong>. Cumplimiento de metas: <strong class="text-white">${d.cumplimiento.toFixed(1)}%</strong>. Ticket promedio registrado de <strong class="text-white">${formatCurrency(d.ticketPromedio)}</strong>.</p></div>
-                                <div class="space-y-3"><p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Patrimonial</p><p>Variación de Capital Global: de ${formatCurrency(d.tM_prev)} a <strong class="text-white">${formatCurrency(d.tM)}</strong>. Valorizado en dólares: <strong class="text-brand-magenta">${formatUSD(d.tM/d.cotiz)}</strong>.</p></div>
+                                <div class="space-y-3">
+                                    <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Comercial</p>
+                                    <p>Ventas totales: <strong class="text-white">${formatCurrency(d.tV)}</strong>. El Ticket promedio registrado general es de <strong class="text-white">${formatCurrency(d.ticketPromedio)}</strong>.</p>
+                                </div>
+                                <div class="space-y-3">
+                                    <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Patrimonial</p>
+                                    <p>Variación de Capital Global: de ${formatCurrency(d.tM_prev)} a <strong class="text-white">${formatCurrency(d.tM)}</strong>. Valorizado en dólares: <strong class="text-brand-magenta">${formatUSD(d.tM/d.cotiz)}</strong>.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -562,7 +566,7 @@
                                 <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2">
                                     <label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Venta Turno Mañana ($)</label>
                                     <input type="text" placeholder="Facturación a la mañana..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${formState.ventasMañana}" onchange="handleFormChange('ventasMañana', this.value)" required ${disabledAttr}>
-                                    <p class="text-[10px] text-brand-magenta mt-2 font-bold tracking-wide">TURNO TARDE (Auto): ${formatCurrency(calcVentaTarde)}</p>
+                                    <p class="text-[10px] text-brand-magenta mt-2 font-bold tracking-wide">TURNO TARDE (Auto): $${formatNumber(calcVentaTarde)}</p>
                                 </div>
                                 <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2">
                                     <label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Total Tickets</label>
