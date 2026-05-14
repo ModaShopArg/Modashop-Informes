@@ -251,11 +251,13 @@
             if (!currentUser) return;
             const docId = `${formState.mes}-${formState.año}-${formState.puntoVenta}`;
             let dataToSave = { mes: formState.mes, año: formState.año, puntoVenta: formState.puntoVenta, cotizacionDolar: window.parseInputNumber(formState.cotizacionDolar) || 1 };
+            
             if (type === 'ventas') {
                 dataToSave.isVentasLoaded = true;
                 dataToSave.ventas = window.parseInputNumber(formState.ventas);
                 dataToSave.ventasMañana = window.parseInputNumber(formState.ventasMañana);
                 dataToSave.ventasTarde = Math.max(0, dataToSave.ventas - dataToSave.ventasMañana);
+                dataToSave.objetivo = window.parseInputNumber(formState.objetivo);
                 dataToSave.tickets = window.parseInputNumber(formState.tickets);
                 dataToSave.ticketsMañana = window.parseInputNumber(formState.ticketsMañana);
                 dataToSave.ticketsTarde = Math.max(0, dataToSave.tickets - dataToSave.ticketsMañana);
@@ -268,9 +270,15 @@
                 dataToSave.stock = stockLimpio;
                 dataToSave.valorMercaderia = stockLimpio.reduce((acc, item) => acc + item.valor, 0);
             }
+            
             await setDoc(getDbDoc(docId), dataToSave, { merge: true });
-            if(type === 'ventas') { formState.ventas=''; formState.ventasMañana=''; formState.tickets=''; formState.ticketsMañana=''; formState.productosVendidos=''; }
+            
+            // Forzar actualización al nuevo período cargado
+            selectedPeriod = `${formState.mes}-${formState.año}`;
+
+            if(type === 'ventas') { formState.ventas=''; formState.ventasMañana=''; formState.objetivo=''; formState.tickets=''; formState.ticketsMañana=''; formState.productosVendidos=''; }
             else { formState.stock = [{ categoria: '', cantidad: '', valor: '' }]; }
+            
             window.switchTab('historial');
         };
 
@@ -298,7 +306,7 @@
             const lastMonthData = appData.filter(d => d.mes === lastMonth && d.año === lastYear);
             const prevMonthData = prevPeriod ? appData.filter(d => d.mes === prevMonth && d.año === prevYear) : [];
 
-            let tV = 0, tT = 0, tP = 0, tM = 0, cotiz = 1;
+            let tV = 0, tObj = 0, tT = 0, tP = 0, tM = 0, cotiz = 1;
             let tM_prev = 0, cotiz_prev = 1;
             let tT_manana = 0, tT_tarde = 0;
             let tV_manana = 0, tV_tarde = 0;
@@ -308,7 +316,7 @@
                 tM += (Number(d.valorMercaderia) || 0);
                 if (Number(d.cotizacionDolar) > cotiz) cotiz = Number(d.cotizacionDolar);
                 if (d.puntoVenta !== 'deposito') { 
-                    tV += (d.ventas || 0); tT += (d.tickets || 0); tP += (d.productosVendidos || 0); 
+                    tV += (d.ventas || 0); tObj += (d.objetivo || 0); tT += (d.tickets || 0); tP += (d.productosVendidos || 0); 
                     tT_manana += (d.ticketsMañana || 0); tT_tarde += (d.ticketsTarde || 0);
                     tV_manana += (d.ventasMañana || 0); tV_tarde += (d.ventasTarde || 0);
                 }
@@ -332,12 +340,12 @@
                 const vC_cap = cur ? (cur.valorMercaderia || 0) : 0;
                 const vP_cap = pre ? (pre.valorMercaderia || 0) : 0;
                 const growth = isD ? (vP_cap > 0 ? ((vC_cap-vP_cap)/vP_cap)*100 : 0) : (vP_sales > 0 ? ((vC_sales-vP_sales)/vP_sales)*100 : 0);
-                return { key, nombre: PUNTOS_VENTA[key], vC_sales, vP_sales, vC_cap, vP_cap, growth, tickets: cur?.tickets || 0, units: cur?.productosVendidos || 0, isDepo: isD };
+                return { key, nombre: PUNTOS_VENTA[key], vC_sales, vP_sales, vC_cap, vP_cap, growth, obj: cur?.objetivo || 0, tickets: cur?.tickets || 0, units: cur?.productosVendidos || 0, isDepo: isD };
             });
 
             return {
                 lastMonthString: `${lastMonth} ${lastYear}`, prevMonthString: prevMonth ? `${prevMonth} ${prevYear}` : 'N/A',
-                tV, tM, tM_prev, cotiz, cotiz_prev, ticketPromedio: tT > 0 ? tV/tT : 0, unidadesTicket: tT > 0 ? tP/tT : 0,
+                tV, tM, tM_prev, cotiz, cotiz_prev, cumplimiento: tObj > 0 ? (tV/tObj)*100 : 0, ticketPromedio: tT > 0 ? tV/tT : 0, unidadesTicket: tT > 0 ? tP/tT : 0,
                 tT_manana, tT_tarde, tV_manana, tV_tarde, momIndiv, lastMonthData,
                 catStats: Object.keys(capPorCat).map(k => ({name: k, val: capPorCat[k].v, avg: capPorCat[k].c > 0 ? capPorCat[k].v/capPorCat[k].c : 0})).sort((a,b)=>b.val-a.val)
             };
@@ -496,7 +504,7 @@
                                 <h3 class="text-lg font-bold">Diagnóstico Ejecutivo - ${d.lastMonthString}</h3>
                             </div>
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm text-gray-300 dark:text-slate-400 leading-relaxed">
-                                <div class="space-y-3"><p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Comercial</p><p>Ventas totales: <strong class="text-white">${formatCurrency(d.tV)}</strong>. El Ticket promedio registrado general es de <strong class="text-white">${formatCurrency(d.ticketPromedio)}</strong>.</p></div>
+                                <div class="space-y-3"><p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Comercial</p><p>Ventas totales: <strong class="text-white">${formatCurrency(d.tV)}</strong>. Cumplimiento de metas: <strong class="text-white">${d.cumplimiento.toFixed(1)}%</strong>. Ticket promedio registrado de <strong class="text-white">${formatCurrency(d.ticketPromedio)}</strong>.</p></div>
                                 <div class="space-y-3"><p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Patrimonial</p><p>Variación de Capital Global: de ${formatCurrency(d.tM_prev)} a <strong class="text-white">${formatCurrency(d.tM)}</strong>. Valorizado en dólares: <strong class="text-brand-magenta">${formatUSD(d.tM/d.cotiz)}</strong>.</p></div>
                             </div>
                         </div>
@@ -506,7 +514,6 @@
             } else if (activeTab === 'cargaVentas') {
                 document.getElementById('export-btn-container').style.display = 'none';
                 
-                // LÓGICA DE BLOQUEO
                 const docId = `${formState.mes}-${formState.año}-${formState.puntoVenta}`;
                 const currentRec = appData.find(d => d.dbId === docId);
                 const isVentasBlocked = currentRec && (currentRec.isVentasLoaded || currentRec.ventas > 0);
@@ -534,7 +541,6 @@
                         ` : ''}
 
                         <form onsubmit="submitGenericForm(event, 'ventas')" class="space-y-6">
-                            <!-- Los dropdowns de selección nunca se bloquean para poder navegar -->
                             <div class="p-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
                                 <label class="block text-center font-bold text-brand-gray uppercase text-[10px] tracking-widest mb-2">Punto de Venta</label>
                                 <select class="w-full p-3 text-xl font-bold border-2 rounded-xl bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-brand-black dark:text-white outline-none focus:border-brand-magenta" onchange="handleFormChange('puntoVenta', this.value)">
@@ -582,7 +588,6 @@
             } else if (activeTab === 'cargaStock') {
                 document.getElementById('export-btn-container').style.display = 'none';
 
-                // LÓGICA DE BLOQUEO STOCK
                 const docId = `${formState.mes}-${formState.año}-${formState.puntoVenta}`;
                 const currentRec = appData.find(d => d.dbId === docId);
                 const isStockBlocked = currentRec && (currentRec.isStockLoaded || currentRec.valorMercaderia > 0);
@@ -629,7 +634,40 @@
                 window.renderFormStockRows();
             } else {
                 document.getElementById('export-btn-container').style.display = 'none';
-                main.innerHTML = `<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden animate-in fade-in"><div class="p-6 border-b border-gray-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold uppercase text-xs tracking-widest text-brand-gray">Historial de Cargas</div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="bg-white dark:bg-slate-900 text-brand-gray border-b border-gray-100 dark:border-slate-800"><th class="p-4">Período</th><th class="p-4">Punto</th><th class="p-4 text-right">Venta Total</th><th class="p-4 text-right">Capital</th>${isAdmin ? `<th class="p-4 text-center">Acción</th>` : ''}</tr></thead><tbody>${appData.slice().sort((a,b)=>b.dbId-a.dbId).map(r=>`<tr class="border-b border-gray-50 dark:border-slate-800 hover:bg-brand-light dark:hover:bg-slate-800 transition-colors"><td class="p-4 font-bold text-brand-black dark:text-white">${r.mes} ${r.año}</td><td class="p-4 text-brand-black dark:text-gray-300 font-bold">${PUNTOS_VENTA[r.puntoVenta]}</td><td class="p-4 text-right font-bold text-brand-magenta">${r.ventas ? formatCurrency(r.ventas) : '-'}</td><td class="p-4 text-right font-bold text-brand-black dark:text-gray-300">${r.valorMercaderia ? formatCurrency(r.valorMercaderia) : '-'}</td>${isAdmin ? `<td class="p-4 text-center"><button onclick="deleteRecord('${r.dbId}')" class="text-brand-gray hover:text-brand-magenta transition"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button></td>` : ''}</tr>`).join('')}</tbody></table></div></div>`;
+                main.innerHTML = `
+                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden animate-in fade-in">
+                        <div class="p-6 border-b border-gray-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-bold uppercase text-xs tracking-widest text-brand-gray">
+                            Historial de Cargas
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead>
+                                    <tr class="bg-white dark:bg-slate-900 text-brand-gray border-b border-gray-100 dark:border-slate-800">
+                                        <th class="p-4">Período</th>
+                                        <th class="p-4">Punto</th>
+                                        <th class="p-4 text-right">Venta Total</th>
+                                        <th class="p-4 text-right">Capital</th>
+                                        ${isAdmin ? `<th class="p-4 text-center">Acción</th>` : ''}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${appData.slice().sort((a,b) => {
+                                        if (a.año !== b.año) return Number(b.año) - Number(a.año);
+                                        if (monthOrder[a.mes] !== monthOrder[b.mes]) return monthOrder[b.mes] - monthOrder[a.mes];
+                                        return a.puntoVenta.localeCompare(b.puntoVenta);
+                                    }).map(r=>`
+                                    <tr class="border-b border-gray-50 dark:border-slate-800 hover:bg-brand-light dark:hover:bg-slate-800 transition-colors">
+                                        <td class="p-4 font-bold text-brand-black dark:text-white">${r.mes} ${r.año}</td>
+                                        <td class="p-4 text-brand-black dark:text-gray-300 font-bold">${PUNTOS_VENTA[r.puntoVenta]}</td>
+                                        <td class="p-4 text-right font-bold text-brand-magenta">${r.isVentasLoaded || typeof r.ventas === 'number' ? formatCurrency(r.ventas) : '-'}</td>
+                                        <td class="p-4 text-right font-bold text-brand-black dark:text-gray-300">${r.isStockLoaded || typeof r.valorMercaderia === 'number' ? formatCurrency(r.valorMercaderia) : '-'}</td>
+                                        ${isAdmin ? `<td class="p-4 text-center"><button onclick="deleteRecord('${r.dbId}')" class="text-brand-gray hover:text-brand-magenta transition"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button></td>` : ''}
+                                    </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
             }
             lucide.createIcons();
         }
@@ -657,7 +695,6 @@
             if (document.getElementById('chartVentasMix')) {
                 chartCfg('chartVentasMix', 'doughnut', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.vC_sales), backgroundColor: brandPalette, borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
                 chartCfg('chartTurnos', 'doughnut', { labels: ['Mañana', 'Tarde'], datasets: [{ data: [d.tT_manana, d.tT_tarde], backgroundColor: ['#EC008C', '#1D1D1B'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
-                // Reemplazo gráfico Brecha de Metas por Ingresos por Turno (Financiero)
                 chartCfg('chartVentasTurno', 'doughnut', { labels: ['Ingresos Mañana', 'Ingresos Tarde'], datasets: [{ data: [d.tV_manana, d.tV_tarde], backgroundColor: ['#EC008C', '#1D1D1B'], borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' }, tooltip: { callbacks: { label: function(c) { return ' ' + formatCurrency(c.raw); } } } } });
                 chartCfg('chartMomComercial', 'bar', { labels: locals.map(m=>m.nombre), datasets: [{ label: d.prevMonthString, data: locals.map(m=>m.vP_sales), backgroundColor: isDark ? '#334155' : '#cbd5e1', borderRadius: 4 }, { label: d.lastMonthString, data: locals.map(m=>m.vC_sales), backgroundColor: '#EC008C', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatAxis } } } });
                 chartCfg('chartUPT', 'bar', { labels: locals.map(l=>l.nombre), datasets: [{ data: locals.map(l=>l.tickets > 0 ? l.units/l.tickets : 0), backgroundColor: '#1D1D1B', borderRadius: 20 }] }, { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } });
