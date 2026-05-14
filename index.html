@@ -206,6 +206,7 @@
 
         const formatCurrency = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(val || 0);
         const formatUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val || 0);
+        const formatNumber = (val) => new Intl.NumberFormat('es-AR').format(val || 0);
         const formatAxis = (value) => {
             if (Math.abs(value) < 1) return '$0';
             let absVal = Math.abs(value);
@@ -561,7 +562,7 @@
                                 <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2">
                                     <label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Venta Turno Mañana ($)</label>
                                     <input type="text" placeholder="Facturación a la mañana..." class="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-brand-black dark:text-white rounded-xl font-bold text-lg outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${formState.ventasMañana}" onchange="handleFormChange('ventasMañana', this.value)" required ${disabledAttr}>
-                                    <p class="text-[10px] text-brand-magenta mt-2 font-bold tracking-wide">TURNO TARDE (Auto): $${formatNumber(calcVentaTarde)}</p>
+                                    <p class="text-[10px] text-brand-magenta mt-2 font-bold tracking-wide">TURNO TARDE (Auto): ${formatCurrency(calcVentaTarde)}</p>
                                 </div>
                                 <div class="bg-white dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 md:col-span-2">
                                     <label class="block text-xs font-bold text-brand-black dark:text-gray-300 uppercase mb-2">Total Tickets</label>
