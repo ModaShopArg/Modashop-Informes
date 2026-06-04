@@ -481,32 +481,34 @@
                 <div id="pdf-export-area" class="w-full space-y-6">`;
 
                 if (showCapital) {
+                    // Datos Globales de Capital
+                    const anioDataGlobal = appData.filter(d => d.año === dashboardAnio);
+                    const mesDataGlobal = anioDataGlobal.filter(d => d.mes === dashboardMes);
+
                     let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
                     let c_dMes = capData.find(d => d.mes === dashboardMes);
 
-                    if (capData.length > 0) {
-                        htmlDashboard += `
-                        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-6 lg:p-8 border border-gray-100 dark:border-slate-800 animate-in fade-in">
-                            <div class="flex items-center mb-6 pb-4 border-b border-gray-100 dark:border-slate-800 justify-between">
-                                <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="archive" class="text-brand-magenta mr-2"></i> Análisis Patrimonial: ${PUNTOS_VENTA[dashboardLocal]}</h3>
-                                ${!showComercial ? `
-                                <select onchange="cambiarDashMes(this.value)" class="bg-transparent border-b-2 border-brand-magenta text-brand-magenta cursor-pointer outline-none font-bold text-lg">
-                                    ${capData.map(d => `<option value="${d.mes}" ${dashboardMes===d.mes?'selected':''}>${d.mes} ${d.año}</option>`).join('')}
-                                </select>` : ''}
-                            </div>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                                <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800 border-l-4 border-l-brand-magenta"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Capital Valorizado (${dashboardMes})</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency(c_dMes?.valorMercaderia||0)}</h4><p class="text-xs text-brand-magenta font-bold mt-1">${formatUSD((c_dMes?.valorMercaderia||0)/(c_dMes?.cotizacionDolar||1))}</p></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Inventario Físico</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatNumber(c_dMes?.stock?.reduce((a,b)=>a+b.cantidad,0)||0)} <span class="text-sm font-normal text-brand-gray">unids.</span></h4></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Valor Unitario Promedio</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency((c_dMes?.stock?.reduce((a,b)=>a+b.cantidad,0)||0)>0?(c_dMes.valorMercaderia/c_dMes.stock.reduce((a,b)=>a+b.cantidad,0)):0)}</h4></div>
-                            </div>
+                    htmlDashboard += `
+                    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-6 lg:p-8 border border-gray-100 dark:border-slate-800 animate-in fade-in">
+                        <div class="flex items-center mb-6 pb-4 border-b border-gray-100 dark:border-slate-800 justify-between">
+                            <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="archive" class="text-brand-magenta mr-2"></i> Análisis Patrimonial Global: Todas las Sucursales</h3>
+                            ${!showComercial ? `
+                            <select onchange="cambiarDashMes(this.value)" class="bg-transparent border-b-2 border-brand-magenta text-brand-magenta cursor-pointer outline-none font-bold text-lg">
+                                ${[...new Set(anioDataGlobal.map(d=>d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]).map(m => `<option value="${m}" ${dashboardMes===m?'selected':''}>${m} ${dashboardAnio}</option>`).join('')}
+                            </select>` : ''}
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                            <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800 border-l-4 border-l-brand-magenta"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Capital Valorizado Global (${dashboardMes})</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency(mesDataGlobal.reduce((acc, d) => acc + (d.valorMercaderia||0), 0))}</h4><p class="text-xs text-brand-magenta font-bold mt-1">Acumulado</p></div>
+                            <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Inventario Físico Global</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatNumber(mesDataGlobal.reduce((acc, d) => acc + (d.stock?.reduce((sAcc, s) => sAcc + s.cantidad, 0)||0), 0))} <span class="text-sm font-normal text-brand-gray">unids.</span></h4></div>
+                            <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Total Locales con Inventario</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${mesDataGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).length} / ${Object.keys(PUNTOS_VENTA).length}</h4></div>
+                        </div>
 
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución del Capital</h4><div class="chart-container"><canvas id="chartEvoCapital"></canvas></div></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Capital por Categoría (${dashboardMes})</h4><div class="chart-container"><canvas id="chartCatCapital"></canvas></div></div>
-                            </div>
-                        </div>`;
-                    }
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución de Capital (${dashboardMes})</h4><div class="chart-container"><canvas id="chartCapGlobalMix"></canvas></div></div>
+                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Global de Capital YTD</h4><div class="chart-container"><canvas id="chartCapGlobalEvo"></canvas></div></div>
+                        </div>
+                    </div>`;
                 }
 
                 if (showComercial) {
@@ -591,9 +593,10 @@
                 }
 
                 if (showCapital) {
+                    const anioDataGlobal = appData.filter(d => d.año === dashboardAnio);
                     let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
                     let c_dMes = capData.find(d => d.mes === dashboardMes);
-                    const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData);
+                    const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData); // Sigue recibiendo el del local para el texto individual
                     const textoDiagCap = modoDiagnostico === 'mensual' ? txtDiagCap.mensual : txtDiagCap.anual;
                     
                     panelesFinales += `
@@ -654,6 +657,26 @@
                     const labels = datosLocalesAnio.map(d => d.mes);
                     const dynamicBgs = datosLocalesAnio.map((d,i) => brandPalette[i % brandPalette.length]);
                     const cCfg = (id, type, data, options) => { if(chartInstances[id]) chartInstances[id].destroy(); const ctx = document.getElementById(id); if (ctx) chartInstances[id] = new Chart(ctx.getContext('2d'), { type, data, options }); };
+
+                    if (showCapital) {
+                        const anioDataGlobal = appData.filter(d => d.año === dashboardAnio);
+                        const mesDataGlobal = anioDataGlobal.filter(d => d.mes === dashboardMes);
+                        
+                        // Gráfico Mix Capital Global
+                        const labelsCapGlobal = mesDataGlobal.map(d => PUNTOS_VENTA[d.puntoVenta]);
+                        const dataCapGlobal = mesDataGlobal.map(d => d.valorMercaderia || 0);
+                        const bgCapGlobal = mesDataGlobal.map((d, i) => brandPalette[i % brandPalette.length]);
+                        
+                        cCfg('chartCapGlobalMix', 'doughnut', { labels: labelsCapGlobal, datasets: [{ data: dataCapGlobal, backgroundColor: bgCapGlobal, borderWidth: 0, hoverOffset: 10 }] }, { responsive: true, maintainAspectRatio: false, cutout: '65%' });
+                        
+                        // Gráfico Evolución Capital Global YTD
+                        const mesesYTD = [...new Set(anioDataGlobal.map(d => d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]);
+                        const evoCapGlobalData = mesesYTD.map(m => {
+                            return anioDataGlobal.filter(d => d.mes === m).reduce((sum, d) => sum + (d.valorMercaderia || 0), 0);
+                        });
+                        
+                        cCfg('chartCapGlobalEvo', 'line', { labels: mesesYTD, datasets: [{ label: 'Capital Total (ARS)', data: evoCapGlobalData, borderColor: '#8b5cf6', backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                    }
 
                     if (showComercial) {
                         cCfg('mixedChart', 'bar', { labels, datasets: [ { label: 'Facturación ($)', data: datosLocalesAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderRadius: 4, yAxisID: 'y' }, { label: 'Ticket Promedio ($)', data: datosLocalesAnio.map(d=>d.ticketPromedio), type: 'line', borderColor: '#EC008C', backgroundColor: '#EC008C', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { type: 'linear', position: 'left', ticks: { callback: formatMillones } }, y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: formatCurrency } } } });
