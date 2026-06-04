@@ -149,7 +149,6 @@
         let appData = [];
         let activeTab = 'dashboard';
         
-        // MODIFICACIÓN DE ORDEN: Iniciamos en 'capital' por defecto.
         let dashboardSubTab = 'capital';
         
         let isAdmin = false; 
@@ -437,42 +436,15 @@
             if (activeTab === 'dashboard') {
                 document.getElementById('export-btn-container').style.display = 'block';
 
-                let datosLocalesAnio = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
                 let aniosDisponibles = [...new Set(appData.map(d=>d.año))].sort((a,b)=>b-a);
                 if(aniosDisponibles.length===0) aniosDisponibles=[new Date().getFullYear().toString()];
                 if(!aniosDisponibles.includes(dashboardAnio)) dashboardAnio = aniosDisponibles[0];
 
-                let htmlDashboard = `
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-6 mb-6 flex flex-col md:flex-row items-center justify-between border-l-8 border-brand-magenta gap-4">
-                        <div class="flex items-center gap-4">
-                            <h1 class="text-2xl font-extrabold text-brand-black dark:text-white flex items-center gap-2">
-                                <i data-lucide="bar-chart" class="text-brand-magenta"></i> Dashboard Analítico
-                            </h1>
-                        </div>
-                        <div class="flex flex-wrap items-center gap-4">
-                            <select onchange="cambiarDashFiltro('local', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-4 py-2 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer">
-                                ${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${dashboardLocal===k?'selected':''}>${v}</option>`).join('')}
-                            </select>
-                            <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-4 py-2 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer">
-                                ${aniosDisponibles.map(a => `<option value="${a}" ${dashboardAnio===a?'selected':''}>${a}</option>`).join('')}
-                            </select>
-                        </div>
-                    </div>
-                `;
-
-                if (datosLocalesAnio.length === 0) {
-                    htmlDashboard += `<div class="text-center py-20 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 max-w-2xl mx-auto"><i data-lucide="inbox" class="mx-auto w-16 h-16 text-brand-gray mb-4"></i><h3 class="text-xl font-bold dark:text-white">Sin datos registrados para ${PUNTOS_VENTA[dashboardLocal]} en ${dashboardAnio}</h3></div>`;
-                    main.innerHTML = htmlDashboard; lucide.createIcons(); return;
-                }
-
-                if(!dashboardMes || !datosLocalesAnio.find(d=>d.mes===dashboardMes)) dashboardMes = datosLocalesAnio[datosLocalesAnio.length-1].mes;
-                const dMes = datosLocalesAnio.find(d=>d.mes===dashboardMes) || {};
-
                 const showComercial = dashboardSubTab === 'comercial' || dashboardSubTab === 'completo';
                 const showCapital = dashboardSubTab === 'capital' || dashboardSubTab === 'completo';
 
-                htmlDashboard += `
-                <div class="flex bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 w-fit mx-auto print-hidden mb-6">
+                let htmlDashboard = `
+                <div class="flex bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 w-fit mx-auto print-hidden mb-6 mt-4">
                     <button onclick="switchDashboardSubTab('capital')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='capital'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">ANÁLISIS DE CAPITAL</button>
                     <button onclick="switchDashboardSubTab('comercial')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='comercial'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">ANÁLISIS COMERCIAL</button>
                     <button onclick="switchDashboardSubTab('completo')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='completo'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">INFORME COMPLETO</button>
@@ -480,26 +452,35 @@
                 
                 <div id="pdf-export-area" class="w-full space-y-6">`;
 
+                // --- 1. ANÁLISIS DE CAPITAL ---
                 if (showCapital) {
-                    // Datos Globales de Capital
                     const anioDataGlobal = appData.filter(d => d.año === dashboardAnio);
-                    const mesDataGlobal = anioDataGlobal.filter(d => d.mes === dashboardMes);
+                    
+                    if(!dashboardMes || !anioDataGlobal.find(d=>d.mes===dashboardMes)) {
+                        dashboardMes = anioDataGlobal.length > 0 ? anioDataGlobal[anioDataGlobal.length-1].mes : mesesList[0];
+                    }
 
+                    const mesDataGlobal = anioDataGlobal.filter(d => d.mes === dashboardMes);
                     let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
-                    let c_dMes = capData.find(d => d.mes === dashboardMes);
+                    let c_dMes = capData.find(d => d.mes === dashboardMes) || {};
 
                     htmlDashboard += `
                     <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-6 lg:p-8 border border-gray-100 dark:border-slate-800 animate-in fade-in">
-                        <div class="flex items-center mb-6 pb-4 border-b border-gray-100 dark:border-slate-800 justify-between">
+                        <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-slate-800 gap-4">
                             <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="archive" class="text-brand-magenta mr-2"></i> Análisis Patrimonial Global: Todas las Sucursales</h3>
-                            ${!showComercial ? `
-                            <select onchange="cambiarDashMes(this.value)" class="bg-transparent border-b-2 border-brand-magenta text-brand-magenta cursor-pointer outline-none font-bold text-lg">
-                                ${[...new Set(anioDataGlobal.map(d=>d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]).map(m => `<option value="${m}" ${dashboardMes===m?'selected':''}>${m} ${dashboardAnio}</option>`).join('')}
-                            </select>` : ''}
+                            <div class="flex items-center gap-3">
+                                ${!showComercial ? `
+                                <select onchange="cambiarDashMes(this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
+                                    ${[...new Set(anioDataGlobal.map(d=>d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]).map(m => `<option class="bg-white dark:bg-slate-800" value="${m}" ${dashboardMes===m?'selected':''}>${m}</option>`).join('')}
+                                </select>` : ''}
+                                <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
+                                    ${aniosDisponibles.map(a => `<option class="bg-white dark:bg-slate-800" value="${a}" ${dashboardAnio===a?'selected':''}>${a}</option>`).join('')}
+                                </select>
+                            </div>
                         </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                            <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800 border-l-4 border-l-brand-magenta"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Capital Valorizado Global (${dashboardMes})</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency(mesDataGlobal.reduce((acc, d) => acc + (d.valorMercaderia||0), 0))}</h4><p class="text-xs text-brand-magenta font-bold mt-1">Acumulado</p></div>
+                            <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800 border-l-4 border-l-brand-magenta"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Capital Valorizado Global (${dashboardMes})</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency(mesDataGlobal.reduce((acc, d) => acc + (d.valorMercaderia||0), 0))}</h4></div>
                             <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Inventario Físico Global</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatNumber(mesDataGlobal.reduce((acc, d) => acc + (d.stock?.reduce((sAcc, s) => sAcc + s.cantidad, 0)||0), 0))} <span class="text-sm font-normal text-brand-gray">unids.</span></h4></div>
                             <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Total Locales con Inventario</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${mesDataGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).length} / ${Object.keys(PUNTOS_VENTA).length}</h4></div>
                         </div>
@@ -509,9 +490,36 @@
                             <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Global de Capital YTD</h4><div class="chart-container"><canvas id="chartCapGlobalEvo"></canvas></div></div>
                         </div>
                     </div>`;
+                    
+                    if (!showComercial) {
+                        const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData); 
+                        const textoDiagCap = modoDiagnostico === 'mensual' ? txtDiagCap.mensual : txtDiagCap.anual;
+                        
+                        htmlDashboard += `
+                            <div class="bg-slate-800 dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-slate-700 dark:border-slate-800 print-break-inside-avoid">
+                                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-700 dark:border-slate-800 pb-4 gap-4">
+                                    <h2 class="text-2xl font-bold flex items-center"><i data-lucide="briefcase" class="text-indigo-400 mr-3"></i> Diagnóstico Patrimonial <span class="text-lg text-slate-400 ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
+                                    <button onclick="toggleDiagMode()" class="bg-slate-700 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
+                                </div>
+                                <p class="text-slate-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCap}</p>
+                            </div>
+                        `;
+                    }
                 }
 
+                // --- 2. ANÁLISIS COMERCIAL ---
+                let dMes = {};
+                let datosLocalesAnio = [];
+
                 if (showComercial) {
+                    datosLocalesAnio = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
+                    
+                    if(!dashboardMes || !datosLocalesAnio.find(d=>d.mes===dashboardMes)) {
+                        dashboardMes = datosLocalesAnio.length > 0 ? datosLocalesAnio[datosLocalesAnio.length-1].mes : mesesList[0];
+                    }
+
+                    dMes = datosLocalesAnio.find(d=>d.mes===dashboardMes) || {};
+
                     let maxVDia = -1; let maxDia = "S/D";
                     let maxVHora = -1; let maxHora = "S/D";
                     if (dMes.grillaDiaria) {
@@ -521,11 +529,21 @@
 
                     htmlDashboard += `
                         <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-6 lg:p-8 border border-gray-100 dark:border-slate-800 animate-in fade-in ${showCapital ? 'mt-8' : ''}">
-                            <div class="flex items-center mb-6 pb-4 border-b border-gray-100 dark:border-slate-800 justify-between">
-                                <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="trending-up" class="text-brand-magenta mr-2"></i> Análisis Comercial: ${PUNTOS_VENTA[dashboardLocal]}</h3>
-                                <select onchange="cambiarDashMes(this.value)" class="bg-transparent border-b-2 border-brand-magenta text-brand-magenta cursor-pointer outline-none font-bold text-lg">
-                                    ${datosLocalesAnio.map(d => `<option value="${d.mes}" ${dashboardMes===d.mes?'selected':''}>${d.mes} ${d.año}</option>`).join('')}
-                                </select>
+                            <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-slate-800 gap-4">
+                                <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center">
+                                    <i data-lucide="trending-up" class="text-brand-magenta mr-2"></i> Análisis Comercial: 
+                                    <select onchange="cambiarDashFiltro('local', this.value)" class="ml-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
+                                        ${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option class="bg-white dark:bg-slate-800" value="${k}" ${dashboardLocal===k?'selected':''}>${v}</option>`).join('')}
+                                    </select>
+                                </h3>
+                                <div class="flex items-center gap-3">
+                                    <select onchange="cambiarDashMes(this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
+                                        ${datosLocalesAnio.map(d => `<option class="bg-white dark:bg-slate-800" value="${d.mes}" ${dashboardMes===d.mes?'selected':''}>${d.mes}</option>`).join('')}
+                                    </select>
+                                    <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
+                                        ${aniosDisponibles.map(a => `<option class="bg-white dark:bg-slate-800" value="${a}" ${dashboardAnio===a?'selected':''}>${a}</option>`).join('')}
+                                    </select>
+                                </div>
                             </div>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -572,47 +590,42 @@
                             </div>
                         </div>
                     `;
-                }
 
-                // Paneles Estratégicos Finales
-                let panelesFinales = '';
-
-                if (showComercial) {
-                    const txtDiag = generarTextoDiagnosticoComercial(dMes, datosLocalesAnio);
-                    const textoDiag = modoDiagnostico === 'mensual' ? txtDiag.mensual : txtDiag.anual;
+                    // --- DIAGNÓSTICOS TEXTUALES ---
+                    const txtDiagComercial = generarTextoDiagnosticoComercial(dMes, datosLocalesAnio);
+                    const textoDiagCom = modoDiagnostico === 'mensual' ? txtDiagComercial.mensual : txtDiagComercial.anual;
                     
-                    panelesFinales += `
+                    let panelesDiagnosticos = `
                         <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
                             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-gray-800 dark:border-slate-800 pb-4 gap-4">
                                 <h2 class="text-2xl font-bold flex items-center"><i data-lucide="file-text" class="text-brand-magenta mr-3"></i> Diagnóstico Ejecutivo <span class="text-lg text-brand-gray ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
                                 <button onclick="toggleDiagMode()" class="bg-gray-800 hover:bg-brand-magenta text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
                             </div>
-                            <p class="text-gray-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiag}</p>
+                            <p class="text-gray-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCom}</p>
                         </div>
                     `;
-                }
 
-                if (showCapital) {
-                    const anioDataGlobal = appData.filter(d => d.año === dashboardAnio);
-                    let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
-                    let c_dMes = capData.find(d => d.mes === dashboardMes);
-                    const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData); // Sigue recibiendo el del local para el texto individual
-                    const textoDiagCap = modoDiagnostico === 'mensual' ? txtDiagCap.mensual : txtDiagCap.anual;
-                    
-                    panelesFinales += `
-                        <div class="bg-slate-800 dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-slate-700 dark:border-slate-800 print-break-inside-avoid">
-                            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-700 dark:border-slate-800 pb-4 gap-4">
-                                <h2 class="text-2xl font-bold flex items-center"><i data-lucide="briefcase" class="text-indigo-400 mr-3"></i> Diagnóstico Patrimonial <span class="text-lg text-slate-400 ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
-                                <button onclick="toggleDiagMode()" class="bg-slate-700 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
+                    if (showCapital) {
+                        let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
+                        let c_dMes = capData.find(d => d.mes === dashboardMes);
+                        const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData); 
+                        const textoDiagCap = modoDiagnostico === 'mensual' ? txtDiagCap.mensual : txtDiagCap.anual;
+                        
+                        panelesDiagnosticos += `
+                            <div class="bg-slate-800 dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-slate-700 dark:border-slate-800 print-break-inside-avoid">
+                                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-700 dark:border-slate-800 pb-4 gap-4">
+                                    <h2 class="text-2xl font-bold flex items-center"><i data-lucide="briefcase" class="text-indigo-400 mr-3"></i> Diagnóstico Patrimonial <span class="text-lg text-slate-400 ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
+                                    <button onclick="toggleDiagMode()" class="bg-slate-700 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
+                                </div>
+                                <p class="text-slate-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCap}</p>
                             </div>
-                            <p class="text-slate-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCap}</p>
-                        </div>
-                    `;
-                }
+                        `;
+                    }
 
-                // Agregamos Foco y Calendario al final de los textos (Solo si Comercial está activo)
-                if (showComercial) {
-                     panelesFinales += `
+                    htmlDashboard += panelesDiagnosticos;
+
+                    // --- PANELES ESTRATÉGICOS GLOBALES ---
+                    htmlDashboard += `
                         <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
                             <h2 class="text-2xl font-bold mb-6 flex items-center border-b border-gray-800 dark:border-slate-800 pb-4"><i data-lucide="target" class="mr-3 text-brand-magenta"></i> Foco y Plan de Acción</h2>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -643,33 +656,29 @@
                     `;
                 }
 
-                htmlDashboard += panelesFinales + `</div>`;
+                htmlDashboard += `</div>`;
                 main.innerHTML = htmlDashboard;
                 lucide.createIcons();
                 
-                // Dibujar Gráficos Anuales
+                // Dibujar Gráficos
                 setTimeout(() => {
                     const isDark = document.documentElement.classList.contains('dark');
                     Chart.defaults.color = isDark ? '#878787' : '#878787';
                     Chart.defaults.scale.grid.color = isDark ? '#334155' : '#e2e8f0';
                     Chart.defaults.font.family = "'Nunito', sans-serif";
 
-                    const labels = datosLocalesAnio.map(d => d.mes);
-                    const dynamicBgs = datosLocalesAnio.map((d,i) => brandPalette[i % brandPalette.length]);
                     const cCfg = (id, type, data, options) => { if(chartInstances[id]) chartInstances[id].destroy(); const ctx = document.getElementById(id); if (ctx) chartInstances[id] = new Chart(ctx.getContext('2d'), { type, data, options }); };
 
                     if (showCapital) {
                         const anioDataGlobal = appData.filter(d => d.año === dashboardAnio);
                         const mesDataGlobal = anioDataGlobal.filter(d => d.mes === dashboardMes);
                         
-                        // Gráfico Mix Capital Global
                         const labelsCapGlobal = mesDataGlobal.map(d => PUNTOS_VENTA[d.puntoVenta]);
                         const dataCapGlobal = mesDataGlobal.map(d => d.valorMercaderia || 0);
                         const bgCapGlobal = mesDataGlobal.map((d, i) => brandPalette[i % brandPalette.length]);
                         
                         cCfg('chartCapGlobalMix', 'doughnut', { labels: labelsCapGlobal, datasets: [{ data: dataCapGlobal, backgroundColor: bgCapGlobal, borderWidth: 0, hoverOffset: 10 }] }, { responsive: true, maintainAspectRatio: false, cutout: '65%' });
                         
-                        // Gráfico Evolución Capital Global YTD
                         const mesesYTD = [...new Set(anioDataGlobal.map(d => d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]);
                         const evoCapGlobalData = mesesYTD.map(m => {
                             return anioDataGlobal.filter(d => d.mes === m).reduce((sum, d) => sum + (d.valorMercaderia || 0), 0);
@@ -679,6 +688,9 @@
                     }
 
                     if (showComercial) {
+                        const labels = datosLocalesAnio.map(d => d.mes);
+                        const dynamicBgs = datosLocalesAnio.map((d,i) => brandPalette[i % brandPalette.length]);
+
                         cCfg('mixedChart', 'bar', { labels, datasets: [ { label: 'Facturación ($)', data: datosLocalesAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderRadius: 4, yAxisID: 'y' }, { label: 'Ticket Promedio ($)', data: datosLocalesAnio.map(d=>d.ticketPromedio), type: 'line', borderColor: '#EC008C', backgroundColor: '#EC008C', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { type: 'linear', position: 'left', ticks: { callback: formatMillones } }, y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: formatCurrency } } } });
                         cCfg('pieChart', 'doughnut', { labels, datasets: [{ data: datosLocalesAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderWidth: 0, hoverOffset: 10 }] }, { responsive: true, maintainAspectRatio: false, cutout: '65%' });
                         cCfg('turnosChart', 'bar', { labels, datasets: [ { label: 'Ventas Mañana ($)', data: datosLocalesAnio.map(d=>d.ventasManana), backgroundColor: '#EC008C', borderRadius: 4 }, { label: 'Ventas Tarde ($)', data: datosLocalesAnio.map(d=>Math.max(0, d.ventas - d.ventasManana)), backgroundColor: '#1D1D1B', borderRadius: 4 } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { ticks: { callback: formatMillones } } } });
@@ -708,18 +720,6 @@
                             const colMes = brandPalette[datosLocalesAnio.findIndex(d => d.mes === dashboardMes) % brandPalette.length];
                             cCfg('chartDias', 'bar', { labels: Array.from({length:numDias}, (_,i)=>`Día ${i+1}`), datasets: [{ label: `Ventas ${dMes.mes}`, data: aggrVDia, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
                             cCfg('chartHora', 'bar', { labels: horasDinamicas.map(h=>`${h}:00`), datasets: [{ label: `Productividad Horaria`, data: aggrVHora, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
-                        }
-                    }
-
-                    if (showCapital) {
-                        let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
-                        cCfg('chartEvoCapital', 'line', { labels: capData.map(d=>d.mes), datasets: [{ label: 'Capital Inmovilizado ($)', data: capData.map(d=>d.valorMercaderia||0), borderColor: '#8b5cf6', backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
-                        let c_dMes = capData.find(d => d.mes === dashboardMes);
-                        if (c_dMes && c_dMes.stock && c_dMes.stock.length > 0) {
-                            cCfg('chartCatCapital', 'bar', { labels: c_dMes.stock.map(s=>s.categoria), datasets: [{ label: 'Valorización (ARS)', data: c_dMes.stock.map(s=>s.valor), backgroundColor: '#10b981', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: formatMillones } } } });
-                        } else {
-                            const ctxC = document.getElementById('chartCatCapital');
-                            if(ctxC) { ctxC.style.display = 'none'; ctxC.parentElement.innerHTML += '<div class="empty-chart-overlay">Sin datos de categorías</div>'; }
                         }
                     }
                 }, 100);
