@@ -148,8 +148,7 @@
         let currentUser = null;
         let appData = [];
         let activeTab = 'dashboard';
-        
-        let dashboardSubTab = 'capital';
+        let dashboardSubTab = 'capital'; // Por defecto
         
         let isAdmin = false; 
         const ADMIN_PIN = "292708"; 
@@ -159,7 +158,6 @@
         let dashboardLocal = 'concordia';
         let dashboardAnio = new Date().getFullYear().toString();
         let dashboardMes = null;
-        let modoDiagnostico = 'mensual'; // 'mensual' o 'anual'
 
         const PUNTOS_VENTA = { concordia: 'Local Concordia', chajari: 'Local Chajarí', tendens: 'Tendens', deposito: 'Depósito' };
         const monthOrder = { 'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6, 'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12 };
@@ -248,7 +246,6 @@
             render(); 
         };
         window.cambiarDashMes = (val) => { dashboardMes = val; render(); };
-        window.toggleDiagMode = () => { modoDiagnostico = modoDiagnostico === 'mensual' ? 'anual' : 'mensual'; render(); };
 
         let formVentas = { mes: 'Enero', año: new Date().getFullYear().toString(), puntoVenta: 'concordia', unidades: '' };
         let formStock = { mes: 'Enero', año: new Date().getFullYear().toString(), puntoVenta: 'concordia', cotizacionDolar: '', stock: [{ categoria: '', cantidad: '', valor: '' }] };
@@ -271,6 +268,7 @@
             else { tr.classList.remove('bg-gray-100', 'dark:bg-slate-800'); }
         };
 
+        // --- SISTEMA DE GUARDADO ---
         window.submitVentasForm = async (e) => {
             e.preventDefault();
             if (!currentUser) return;
@@ -336,7 +334,7 @@
 
         window.deleteRecord = async (dbId) => { if(confirm('¿Eliminar registro histórico?')) await deleteDoc(doc(db, 'registros_mensuales', dbId)); };
 
-        // --- DIAGNÓSTICOS SEPARADOS ---
+        // --- DIAGNÓSTICOS DE TEXTO ---
         function generarTextoDiagnosticoComercial(dataMes, dataAnio) {
             if (!dataMes || !dataMes.isVentasLoaded) return { mensual: "Faltan datos de ventas para el diagnóstico mensual.", anual: "Faltan datos de ventas." };
             
@@ -380,42 +378,10 @@
             return { mensual: txtMensual, anual: txtAnual };
         }
 
-        function generarTextoDiagnosticoCapital(c_dMes, capData) {
-            if (!c_dMes || !c_dMes.isStockLoaded) return { mensual: "No hay datos de inventario patrimonial cargados para este mes.", anual: "Faltan datos de inventario patrimonial para el año seleccionado." };
-
-            const totalCapital = c_dMes.valorMercaderia || 0;
-            const cotizacion = c_dMes.cotizacionDolar || 1;
-            
-            let totalUnidades = 0;
-            let maxValorRubro = -1;
-            let rubroFuerte = "S/D";
-
-            if (c_dMes.stock && c_dMes.stock.length > 0) {
-                c_dMes.stock.forEach(s => {
-                    totalUnidades += (s.cantidad || 0);
-                    if ((s.valor || 0) > maxValorRubro) {
-                        maxValorRubro = s.valor || 0;
-                        rubroFuerte = s.categoria;
-                    }
-                });
-            }
-
-            const valorPromedio = totalUnidades > 0 ? totalCapital / totalUnidades : 0;
-
-            let txtMensual = `Al cierre patrimonial de ${c_dMes.mes} ${dashboardAnio}, la sucursal ${PUNTOS_VENTA[dashboardLocal]} cuenta con un Capital Inmovilizado total de ${formatCurrency(totalCapital)} (equivalente a ${formatUSD(totalCapital/cotizacion)} a la cotización registrada de $${formatNumber(cotizacion)}).\n\n`;
-            txtMensual += `El inventario físico reporta un volumen de ${formatNumber(totalUnidades)} unidades en stock, lo que establece un valor promedio unitario de ${formatCurrency(valorPromedio)} por artículo.\n\n`;
-            
-            if (rubroFuerte !== "S/D") {
-                txtMensual += `A nivel de concentración de valor, la categoría "${rubroFuerte}" es el rubro de mayor peso patrimonial, representando ${formatCurrency(maxValorRubro)} del total inmovilizado.`;
-            }
-
-            let txtAnual = `Durante el año ${dashboardAnio}, el capital inmovilizado en ${PUNTOS_VENTA[dashboardLocal]} ha ido fluctuando conforme a las variaciones del mercado y reposición de stock. El registro del mes analizado (${c_dMes.mes}) indica un patrimonio retenido de ${formatCurrency(totalCapital)} distribuidos en ${formatNumber(totalUnidades)} unidades físicas de respaldo.`;
-
-            return { mensual: txtMensual, anual: txtAnual };
-        }
-
+        // --- SISTEMA DE RENDERIZADO PRINCIPAL ---
         function render() {
             const main = document.getElementById('main-content');
+            const nav = ['dashboard', 'cargaVentas', 'cargaStock', 'historial'];
             
             const tabVentas = document.getElementById('tab-cargaVentas');
             const tabStock = document.getElementById('tab-cargaStock');
@@ -425,9 +391,9 @@
             const btnAdmin = document.getElementById('btn-admin');
             if (btnAdmin) {
                 btnAdmin.innerHTML = isAdmin ? `<i data-lucide="unlock" class="w-4 h-4"></i> <span class="hidden sm:inline">Modo Edición</span>` : `<i data-lucide="lock" class="w-4 h-4"></i> <span class="hidden sm:inline">Modo Lectura</span>`;
+                btnAdmin.className = isAdmin ? "flex items-center gap-2 bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta dark:text-brand-magenta px-4 py-2 rounded-lg transition shadow-sm font-bold text-sm border border-brand-magenta/30" : "flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm font-bold text-sm border border-transparent";
             }
 
-            const nav = ['dashboard', 'cargaVentas', 'cargaStock', 'historial'];
             nav.forEach(t => { 
                 const el = document.getElementById(`tab-${t}`); 
                 if(el) el.className = (t === activeTab) ? "tab-active py-4 px-1 text-sm flex items-center gap-2" : "py-4 px-1 text-sm text-brand-gray dark:text-slate-400 hover:text-brand-magenta dark:hover:text-brand-magenta flex items-center gap-2 font-bold transition-colors"; 
@@ -438,291 +404,277 @@
 
                 let aniosDisponibles = [...new Set(appData.map(d=>d.año))].sort((a,b)=>b-a);
                 if(aniosDisponibles.length===0) aniosDisponibles=[new Date().getFullYear().toString()];
-                if(!aniosDisponibles.includes(dashboardAnio)) dashboardAnio = aniosDisponibles[0];
+
+                // UI Top Selectores Globales
+                let html = `
+                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 mb-6 flex flex-col md:flex-row items-center justify-between border-l-4 border-brand-magenta gap-4 animate-in fade-in">
+                        <h1 class="text-xl font-extrabold text-brand-black dark:text-white flex items-center gap-2"><i data-lucide="bar-chart-2" class="text-brand-magenta w-5 h-5"></i> Dashboard Analítico</h1>
+                        <div class="flex items-center gap-3">
+                            <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 text-sm font-bold outline-none focus:border-brand-magenta cursor-pointer">
+                                ${aniosDisponibles.map(a => `<option value="${a}" ${dashboardAnio===a?'selected':''}>${a}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                `;
+
+                const datosAnioGlobal = appData.filter(d => d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
+
+                if (datosAnioGlobal.length === 0) {
+                    html += `<div class="text-center py-20 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><i data-lucide="inbox" class="mx-auto w-16 h-16 text-brand-gray mb-4"></i><h3 class="text-xl font-bold dark:text-white">Sin datos registrados en ${dashboardAnio}</h3></div>`;
+                    main.innerHTML = html; lucide.createIcons(); return;
+                }
+
+                // Asegurar mes base para capital (el último disponible globalmente)
+                if(!dashboardMes || !datosAnioGlobal.find(d=>d.mes===dashboardMes)) dashboardMes = datosAnioGlobal[datosAnioGlobal.length-1].mes;
+                const dMesGlobal = datosAnioGlobal.filter(d=>d.mes===dashboardMes);
 
                 const showComercial = dashboardSubTab === 'comercial' || dashboardSubTab === 'completo';
                 const showCapital = dashboardSubTab === 'capital' || dashboardSubTab === 'completo';
 
-                let htmlDashboard = `
-                <div class="flex bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 w-fit mx-auto print-hidden mb-6 mt-4">
-                    <button onclick="switchDashboardSubTab('capital')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='capital'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">ANÁLISIS DE CAPITAL</button>
-                    <button onclick="switchDashboardSubTab('comercial')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='comercial'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">ANÁLISIS COMERCIAL</button>
-                    <button onclick="switchDashboardSubTab('completo')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='completo'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">INFORME COMPLETO</button>
-                </div>
-                
-                <div id="pdf-export-area" class="w-full space-y-6">`;
+                html += `
+                    <div class="flex bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 w-fit mx-auto print-hidden mb-6">
+                        <button onclick="switchDashboardSubTab('capital')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='capital'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">ANÁLISIS DE CAPITAL</button>
+                        <button onclick="switchDashboardSubTab('comercial')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='comercial'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">ANÁLISIS COMERCIAL</button>
+                        <button onclick="switchDashboardSubTab('completo')" class="px-6 py-2 rounded-lg text-xs font-bold transition-all ${dashboardSubTab==='completo'?'subtab-active':'text-brand-gray dark:text-slate-400 hover:text-brand-magenta'}">INFORME COMPLETO</button>
+                    </div>
+                `;
 
-                // --- 1. ANÁLISIS DE CAPITAL ---
+                // ------------------ ANÁLISIS DE CAPITAL (Global) ------------------
                 if (showCapital) {
-                    const anioDataGlobal = appData.filter(d => d.año === dashboardAnio);
+                    let totalCapGlobal = 0; let totalInvFisico = 0; let cotiz = 1;
+                    const capPorCat = {}; const capPorLocal = {};
                     
-                    if(!dashboardMes || !anioDataGlobal.find(d=>d.mes===dashboardMes)) {
-                        dashboardMes = anioDataGlobal.length > 0 ? anioDataGlobal[anioDataGlobal.length-1].mes : mesesList[0];
+                    dMesGlobal.forEach(d => {
+                        if(d.isStockLoaded || d.valorMercaderia > 0) {
+                            totalCapGlobal += (d.valorMercaderia || 0);
+                            if (d.cotizacionDolar > 1) cotiz = d.cotizacionDolar;
+                            
+                            capPorLocal[d.puntoVenta] = (capPorLocal[d.puntoVenta]||0) + (d.valorMercaderia||0);
+                            
+                            if (d.stock) d.stock.forEach(i => { 
+                                totalInvFisico += (i.cantidad || 0);
+                                if(!capPorCat[i.categoria]) capPorCat[i.categoria] = {v:0, c:0}; 
+                                capPorCat[i.categoria].v += i.valor; capPorCat[i.categoria].c += i.cantidad; 
+                            });
+                        }
+                    });
+
+                    let valorUnitario = totalInvFisico > 0 ? totalCapGlobal / totalInvFisico : 0;
+                    
+                    // Calcular capital mes anterior para comparativa global
+                    const prevMesIndex = mesesList.indexOf(dashboardMes) - 1;
+                    const prevMes = prevMesIndex >= 0 ? mesesList[prevMesIndex] : null;
+                    let tM_prev = 0;
+                    if (prevMes) {
+                        const dPrevGlobal = datosAnioGlobal.filter(d=>d.mes===prevMes);
+                        dPrevGlobal.forEach(d => { tM_prev += (d.valorMercaderia || 0); });
                     }
+                    let difCap = tM_prev > 0 ? ((totalCapGlobal - tM_prev) / tM_prev) * 100 : 0;
+                    
+                    let topRubro = Object.keys(capPorCat).map(k => ({cat: k, val: capPorCat[k].v})).sort((a,b)=>b.val-a.val)[0];
+                    let topLocal = Object.keys(capPorLocal).map(k => ({loc: k, val: capPorLocal[k]})).sort((a,b)=>b.val-a.val)[0];
 
-                    const mesDataGlobal = anioDataGlobal.filter(d => d.mes === dashboardMes);
-                    let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
-                    let c_dMes = capData.find(d => d.mes === dashboardMes) || {};
+                    let diagCapitalText = `A la fecha de cierre de ${dashboardMes} ${dashboardAnio}, el inventario físico consolidado de la empresa (Depósito + Locales) cuenta con ${formatNumber(totalInvFisico)} unidades. El capital total inmovilizado se valoriza en ${formatCurrency(totalCapGlobal)} (equivalente a ${formatUSD(totalCapGlobal / cotiz)} al tipo de cambio reportado). El valor unitario promedio general es de ${formatCurrency(valorUnitario)}.\n\n`;
+                    if (prevMes) diagCapitalText += `En comparación con el mes anterior (${prevMes}), el capital global experimentó una variación del ${difCap > 0 ? '+' : ''}${difCap.toFixed(1)}%. `;
+                    if (topLocal) diagCapitalText += `El punto con mayor acumulación de valor es ${PUNTOS_VENTA[topLocal.loc]} (${formatCurrency(topLocal.val)}). `;
+                    if (topRubro) diagCapitalText += `A nivel de composición de stock, el rubro "${topRubro.cat}" concentra la mayor inversión.`;
 
-                    htmlDashboard += `
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-6 lg:p-8 border border-gray-100 dark:border-slate-800 animate-in fade-in">
-                        <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-slate-800 gap-4">
-                            <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="archive" class="text-brand-magenta mr-2"></i> Análisis Patrimonial Global: Todas las Sucursales</h3>
+                    html += `
+                    <div class="space-y-6 animate-in slide-in-from-bottom-2">
+                        <div class="flex items-center justify-between bg-brand-light dark:bg-slate-800 p-4 rounded-xl border border-brand-magenta/20 dark:border-slate-700">
+                            <h2 class="text-xl font-bold text-brand-magenta flex items-center"><i data-lucide="archive" class="mr-2"></i> Análisis Patrimonial (Todos los Puntos)</h2>
+                            <select onchange="cambiarDashMes(this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer">
+                                ${[...new Set(datosAnioGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).map(d=>d.mes))].map(m => `<option value="${m}" ${dashboardMes===m?'selected':''}>${m} ${dashboardAnio}</option>`).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-magenta"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase">Capital Valorizado (${dashboardMes})</p><h3 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(totalCapGlobal)}</h3><p class="text-xs text-brand-magenta font-bold mt-1">${formatUSD(totalCapGlobal/cotiz)}</p></div>
+                            <div class="bg-slate-50 dark:bg-slate-800 p-5 rounded-xl shadow-sm border-l-4 border-slate-400 opacity-80"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase">Capital (${prevMes||'N/A'})</p><h3 class="text-xl font-bold text-slate-500 mt-1">${formatCurrency(tM_prev)}</h3><p class="text-xs font-bold ${difCap>=0?'text-emerald-500':'text-red-500'}">${difCap>0?'+':''}${difCap.toFixed(1)}%</p></div>
+                            <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-black dark:border-gray-500"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase">Inventario Físico</p><h3 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatNumber(totalInvFisico)} <span class="text-sm font-normal text-brand-gray">unids.</span></h3></div>
+                            <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-gray"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase">Valor Unitario Promedio</p><h3 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(valorUnitario)}</h3></div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Global del Capital (YTD)</h4><div class="chart-container"><canvas id="chartYoyCapital"></canvas></div></div>
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución del Capital por Sucursal</h4><div class="chart-container"><canvas id="chartCapitalMix"></canvas></div></div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Capital por Categoría Global</h4><div class="chart-container"><canvas id="chartCapitalCat"></canvas></div></div>
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Valor Unitario por Categoría Global</h4><div class="chart-container"><canvas id="chartRubroAvg"></canvas></div></div>
+                        </div>
+
+                        ${!showComercial ? `
+                        <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-6 border border-brand-black dark:border-slate-800">
+                            <div class="flex items-center gap-3 mb-4"><div class="p-2 bg-brand-magenta/20 rounded-lg"><i data-lucide="archive" class="text-brand-magenta"></i></div><h3 class="text-lg font-bold">Diagnóstico Patrimonial Global (${dashboardMes})</h3></div>
+                            <p class="text-sm text-gray-300 dark:text-slate-400 leading-relaxed">${diagCapitalText}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                    `;
+                }
+
+                // ------------------ ANÁLISIS COMERCIAL (Individual por Local) ------------------
+                if (showComercial) {
+                    // Aquí volvemos al selector individual
+                    html += `<div class="flex items-center justify-between bg-brand-light dark:bg-slate-800 p-4 rounded-xl border border-brand-magenta/20 dark:border-slate-700 mt-8 mb-6">
                             <div class="flex items-center gap-3">
-                                ${!showComercial ? `
-                                <select onchange="cambiarDashMes(this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
-                                    ${[...new Set(anioDataGlobal.map(d=>d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]).map(m => `<option class="bg-white dark:bg-slate-800" value="${m}" ${dashboardMes===m?'selected':''}>${m}</option>`).join('')}
-                                </select>` : ''}
-                                <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
-                                    ${aniosDisponibles.map(a => `<option class="bg-white dark:bg-slate-800" value="${a}" ${dashboardAnio===a?'selected':''}>${a}</option>`).join('')}
+                                <h2 class="text-xl font-bold text-brand-magenta flex items-center"><i data-lucide="trending-up" class="mr-2"></i> Análisis Comercial Local</h2>
+                                <select onchange="cambiarDashFiltro('local', this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer">
+                                    ${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${dashboardLocal===k?'selected':''}>${v}</option>`).join('')}
                                 </select>
                             </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                            <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800 border-l-4 border-l-brand-magenta"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Capital Valorizado Global (${dashboardMes})</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency(mesDataGlobal.reduce((acc, d) => acc + (d.valorMercaderia||0), 0))}</h4></div>
-                            <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Inventario Físico Global</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatNumber(mesDataGlobal.reduce((acc, d) => acc + (d.stock?.reduce((sAcc, s) => sAcc + s.cantidad, 0)||0), 0))} <span class="text-sm font-normal text-brand-gray">unids.</span></h4></div>
-                            <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Total Locales con Inventario</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${mesDataGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).length} / ${Object.keys(PUNTOS_VENTA).length}</h4></div>
-                        </div>
+                            <select onchange="cambiarDashMes(this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer">
+                                ${[...new Set(datosAnioGlobal.filter(d=>d.puntoVenta===dashboardLocal && d.isVentasLoaded).map(d=>d.mes))].map(m => `<option value="${m}" ${dashboardMes===m?'selected':''}>${m} ${dashboardAnio}</option>`).join('')}
+                            </select>
+                        </div>`;
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución de Capital (${dashboardMes})</h4><div class="chart-container"><canvas id="chartCapGlobalMix"></canvas></div></div>
-                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Global de Capital YTD</h4><div class="chart-container"><canvas id="chartCapGlobalEvo"></canvas></div></div>
-                        </div>
-                    </div>`;
+                    const datosLocalAnio = datosAnioGlobal.filter(d => d.puntoVenta === dashboardLocal && d.isVentasLoaded);
                     
-                    if (!showComercial) {
-                        const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData); 
-                        const textoDiagCap = modoDiagnostico === 'mensual' ? txtDiagCap.mensual : txtDiagCap.anual;
-                        
-                        htmlDashboard += `
-                            <div class="bg-slate-800 dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-slate-700 dark:border-slate-800 print-break-inside-avoid">
-                                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-700 dark:border-slate-800 pb-4 gap-4">
-                                    <h2 class="text-2xl font-bold flex items-center"><i data-lucide="briefcase" class="text-indigo-400 mr-3"></i> Diagnóstico Patrimonial <span class="text-lg text-slate-400 ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
-                                    <button onclick="toggleDiagMode()" class="bg-slate-700 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
-                                </div>
-                                <p class="text-slate-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCap}</p>
-                            </div>
-                        `;
-                    }
-                }
+                    if (datosLocalAnio.length === 0) {
+                        html += `<div class="text-center py-10 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><i data-lucide="inbox" class="mx-auto w-12 h-12 text-brand-gray mb-4"></i><h3 class="text-lg font-bold dark:text-white">Sin ventas registradas en ${PUNTOS_VENTA[dashboardLocal]}</h3></div>`;
+                    } else {
+                        const dMes = datosLocalAnio.find(d=>d.mes===dashboardMes) || datosLocalAnio[datosLocalAnio.length-1];
 
-                // --- 2. ANÁLISIS COMERCIAL ---
-                let dMes = {};
-                let datosLocalesAnio = [];
+                        let sumVentas=0, sumTickets=0, sumDiasOp=0;
+                        datosLocalAnio.forEach(d => { sumVentas+=(d.ventas||0); sumTickets+=(d.tickets||0); sumDiasOp+=(d.diasOperativos||30); });
+                        let tPromAnual = sumTickets>0 ? sumVentas/sumTickets : 0;
+                        let vDiaAnual = sumDiasOp>0 ? sumVentas/sumDiasOp : 0;
 
-                if (showComercial) {
-                    datosLocalesAnio = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
-                    
-                    if(!dashboardMes || !datosLocalesAnio.find(d=>d.mes===dashboardMes)) {
-                        dashboardMes = datosLocalesAnio.length > 0 ? datosLocalesAnio[datosLocalesAnio.length-1].mes : mesesList[0];
-                    }
+                        let diasOperativosMes = dMes.diasOperativos || 30;
+                        let ventaDiariaMes = dMes.ventas / diasOperativosMes;
+                        let uptMes = dMes.tickets > 0 ? ((dMes.productosVendidos||0) / dMes.tickets).toFixed(2) : '0.00';
+                        let tksDiaMes = Math.round((dMes.tickets||0) / diasOperativosMes);
 
-                    dMes = datosLocalesAnio.find(d=>d.mes===dashboardMes) || {};
-
-                    let maxVDia = -1; let maxDia = "S/D";
-                    let maxVHora = -1; let maxHora = "S/D";
-                    if (dMes.grillaDiaria) {
-                        for(let i=1; i<=31; i++) { if(dMes.grillaDiaria[i]) { let sum=0; horasDinamicas.forEach(h => sum+=(dMes.grillaDiaria[i][h]?.v||0)); if(sum>maxVDia){ maxVDia=sum; maxDia=`Día ${i}`; } } }
-                        horasDinamicas.forEach(h => { let sum=0; for(let i=1; i<=31; i++) { if(dMes.grillaDiaria[i]) sum+=(dMes.grillaDiaria[i][h]?.v||0); } if(sum>maxVHora){ maxVHora=sum; maxHora=`${h.toString().padStart(2,'0')}:00`; } });
-                    }
-
-                    htmlDashboard += `
-                        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-6 lg:p-8 border border-gray-100 dark:border-slate-800 animate-in fade-in ${showCapital ? 'mt-8' : ''}">
-                            <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-slate-800 gap-4">
-                                <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center">
-                                    <i data-lucide="trending-up" class="text-brand-magenta mr-2"></i> Análisis Comercial: 
-                                    <select onchange="cambiarDashFiltro('local', this.value)" class="ml-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
-                                        ${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option class="bg-white dark:bg-slate-800" value="${k}" ${dashboardLocal===k?'selected':''}>${v}</option>`).join('')}
-                                    </select>
-                                </h3>
-                                <div class="flex items-center gap-3">
-                                    <select onchange="cambiarDashMes(this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
-                                        ${datosLocalesAnio.map(d => `<option class="bg-white dark:bg-slate-800" value="${d.mes}" ${dashboardMes===d.mes?'selected':''}>${d.mes}</option>`).join('')}
-                                    </select>
-                                    <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 font-bold outline-none focus:border-brand-magenta shadow-sm cursor-pointer text-sm">
-                                        ${aniosDisponibles.map(a => `<option class="bg-white dark:bg-slate-800" value="${a}" ${dashboardAnio===a?'selected':''}>${a}</option>`).join('')}
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border-l-4 border-brand-magenta"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Facturación (${dashboardMes})</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency(dMes.ventas)}</h4></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border-l-4 border-brand-black dark:border-gray-500"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Tráfico (Tickets)</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatNumber(dMes.tickets)}</h4></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border-l-4 border-brand-gray"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Ticket Promedio</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency(dMes.tickets>0?dMes.ventas/dMes.tickets:0)}</h4></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border-l-4 border-slate-300"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Venta Diaria Prom.</p><h4 class="text-2xl font-black text-brand-black dark:text-white">${formatCurrency((dMes.diasOperativos||30)>0 ? dMes.ventas/(dMes.diasOperativos||30) : 0)}</h4></div>
-                            </div>
-
-                            <div class="mb-8 border border-gray-100 dark:border-slate-800 rounded-xl overflow-hidden">
-                                <div class="bg-slate-50 dark:bg-slate-950 p-4 border-b border-gray-100 dark:border-slate-800 font-bold text-sm text-brand-black dark:text-white"><i class="fas fa-search mr-2 text-brand-magenta"></i> Detalle Operativo Exacto</div>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-y divide-gray-100 dark:divide-slate-800">
-                                    <div class="p-4 bg-white dark:bg-slate-900"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">UPT</p><h4 class="text-lg font-bold text-brand-black dark:text-white">${dMes.tickets>0?(dMes.productosVendidos/dMes.tickets).toFixed(2):'0.00'}</h4></div>
-                                    <div class="p-4 bg-white dark:bg-slate-900"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Mejor Día</p><h4 class="text-lg font-bold text-brand-black dark:text-white">${maxDia} <span class="text-xs text-brand-gray">(${formatMillones(maxVDia)})</span></h4></div>
-                                    <div class="p-4 bg-white dark:bg-slate-900"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Hora Más Fuerte</p><h4 class="text-lg font-bold text-brand-black dark:text-white">${maxHora}</h4></div>
-                                    <div class="p-4 bg-white dark:bg-slate-900"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Tickets / Día Prom.</p><h4 class="text-lg font-bold text-brand-black dark:text-white">${formatNumber(Math.round((dMes.diasOperativos||30)>0 ? dMes.tickets/(dMes.diasOperativos||30) : 0))}</h4></div>
-                                </div>
-                                <div class="grid grid-cols-2 border-t border-gray-100 dark:border-slate-800 divide-x divide-gray-100 dark:divide-slate-800">
-                                    <div class="p-4 bg-brand-light dark:bg-brand-magenta/5 flex justify-between items-center"><span class="text-xs font-bold text-brand-magenta">☀️ Facturación Mañana</span> <span class="font-black text-brand-black dark:text-white">${formatCurrency(dMes.ventasManana||0)}</span></div>
-                                    <div class="p-4 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center"><span class="text-xs font-bold text-brand-gray dark:text-slate-400">🌙 Facturación Tarde</span> <span class="font-black text-brand-black dark:text-white">${formatCurrency((dMes.ventas||0) - (dMes.ventasManana||0))}</span></div>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                                <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Diaria (${dashboardMes})</h4><div class="chart-container"><canvas id="chartDias"></canvas></div></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Productividad por Hora (${dashboardMes})</h4><div class="chart-container"><canvas id="chartHora"></canvas></div></div>
-                            </div>
-                            
-                            <h3 class="text-lg font-bold text-brand-black dark:text-white flex items-center mb-6 border-b border-gray-100 dark:border-slate-800 pb-2"><i data-lucide="globe" class="text-brand-magenta mr-2"></i> Evolución Global Anual (YTD)</h3>
-                            
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 lg:col-span-2"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Ventas vs Ticket Promedio</h4><div class="chart-container"><canvas id="mixedChart"></canvas></div></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución de Ingresos</h4><div class="chart-container"><canvas id="pieChart"></canvas></div></div>
-                            </div>
-
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Rendimiento Operativo (Turnos)</h4><div class="chart-container"><canvas id="turnosChart"></canvas></div></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución de Tráfico (Tickets)</h4><div class="chart-container"><canvas id="traficoChart"></canvas></div></div>
-                            </div>
-
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Eficiencia de Venta (Unidades y UPT)</h4><div class="chart-container"><canvas id="unidadesChart"></canvas></div></div>
-                                <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Crecimiento Mensual MoM (%)</h4><div class="chart-container"><canvas id="crecimientoChart"></canvas></div></div>
-                            </div>
-                        </div>
-                    `;
-
-                    // --- DIAGNÓSTICOS TEXTUALES ---
-                    const txtDiagComercial = generarTextoDiagnosticoComercial(dMes, datosLocalesAnio);
-                    const textoDiagCom = modoDiagnostico === 'mensual' ? txtDiagComercial.mensual : txtDiagComercial.anual;
-                    
-                    let panelesDiagnosticos = `
-                        <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
-                            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-gray-800 dark:border-slate-800 pb-4 gap-4">
-                                <h2 class="text-2xl font-bold flex items-center"><i data-lucide="file-text" class="text-brand-magenta mr-3"></i> Diagnóstico Ejecutivo <span class="text-lg text-brand-gray ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
-                                <button onclick="toggleDiagMode()" class="bg-gray-800 hover:bg-brand-magenta text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
-                            </div>
-                            <p class="text-gray-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCom}</p>
-                        </div>
-                    `;
-
-                    if (showCapital) {
-                        let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
-                        let c_dMes = capData.find(d => d.mes === dashboardMes);
-                        const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData); 
-                        const textoDiagCap = modoDiagnostico === 'mensual' ? txtDiagCap.mensual : txtDiagCap.anual;
-                        
-                        panelesDiagnosticos += `
-                            <div class="bg-slate-800 dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-slate-700 dark:border-slate-800 print-break-inside-avoid">
-                                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-700 dark:border-slate-800 pb-4 gap-4">
-                                    <h2 class="text-2xl font-bold flex items-center"><i data-lucide="briefcase" class="text-indigo-400 mr-3"></i> Diagnóstico Patrimonial <span class="text-lg text-slate-400 ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
-                                    <button onclick="toggleDiagMode()" class="bg-slate-700 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
-                                </div>
-                                <p class="text-slate-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCap}</p>
-                            </div>
-                        `;
-                    }
-
-                    htmlDashboard += panelesDiagnosticos;
-
-                    // --- PANELES ESTRATÉGICOS GLOBALES ---
-                    htmlDashboard += `
-                        <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
-                            <h2 class="text-2xl font-bold mb-6 flex items-center border-b border-gray-800 dark:border-slate-800 pb-4"><i data-lucide="target" class="mr-3 text-brand-magenta"></i> Foco y Plan de Acción</h2>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                                <div><div class="flex items-center mb-3"><div class="bg-white/10 p-2 rounded-lg mr-3"><i data-lucide="trending-up" class="text-brand-magenta w-5 h-5"></i></div><h3 class="font-bold text-lg">1. Cuidar el Tráfico</h3></div><p class="text-brand-gray text-sm leading-relaxed font-semibold">Observar de cerca el volumen de tickets. Si la cantidad de ingresos baja, se requiere activación inmediata.</p></div>
-                                <div><div class="flex items-center mb-3"><div class="bg-white/10 p-2 rounded-lg mr-3"><i data-lucide="arrow-up-circle" class="text-brand-magenta w-5 h-5"></i></div><h3 class="font-bold text-lg">2. Up-Selling</h3></div><p class="text-brand-gray text-sm leading-relaxed font-semibold">El ticket promedio es la métrica de eficiencia. Capacitar en "venta cruzada" en caja es vital.</p></div>
-                                <div><div class="flex items-center mb-3"><div class="bg-white/10 p-2 rounded-lg mr-3"><i data-lucide="crosshair" class="text-brand-magenta w-5 h-5"></i></div><h3 class="font-bold text-lg">3. Metas del Mes</h3></div><p class="text-brand-gray text-sm leading-relaxed font-semibold">Establecer "Ticket Objetivo" para vendedores por turno y atar incentivos si logran el promedio.</p></div>
-                                <div><div class="flex items-center mb-3"><div class="bg-white/10 p-2 rounded-lg mr-3"><i data-lucide="users" class="text-brand-magenta w-5 h-5"></i></div><h3 class="font-bold text-lg">4. Balance Staff</h3></div><p class="text-brand-gray text-sm leading-relaxed font-semibold">Usar Análisis "Hora a Hora" para redistribuir el staff. Reforzar con vendedores top en horas pico.</p></div>
-                            </div>
-                        </div>
-
-                        <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
-                            <h2 class="text-2xl font-bold mb-6 flex items-center border-b border-gray-800 dark:border-slate-800 pb-4"><i data-lucide="calendar" class="mr-3 text-brand-magenta"></i> Calendario Comercial (ARG)</h2>
-                            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Enero</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Reyes Magos</li><li>Liq. de Verano</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Febrero</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>San Valentín</li><li>Feriado Carnaval</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Marzo</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Día Mujer</li><li>Temp. Otoño/Inv.</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Abril</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Pascuas</li><li>Media Temporada</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Mayo</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Hot Sale (ARG)</li><li>Feriados Nac.</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Junio</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Día del Padre</li><li>Inicio Invierno</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Julio</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Día Amigo</li><li>Liq. Invierno</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Agosto</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Día Infancias</li><li>Remate Stock</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Septiembre</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Día Primavera</li><li>Temp. Prim/Ver.</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Octubre</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Día Madre</li><li>Halloween</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Noviembre</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Cyber Monday</li><li>Black Friday</li></ul></div>
-                                <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase tracking-tighter">Diciembre</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Navidad</li><li>Año Nuevo</li></ul></div>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                htmlDashboard += `</div>`;
-                main.innerHTML = htmlDashboard;
-                lucide.createIcons();
-                
-                // Dibujar Gráficos
-                setTimeout(() => {
-                    const isDark = document.documentElement.classList.contains('dark');
-                    Chart.defaults.color = isDark ? '#878787' : '#878787';
-                    Chart.defaults.scale.grid.color = isDark ? '#334155' : '#e2e8f0';
-                    Chart.defaults.font.family = "'Nunito', sans-serif";
-
-                    const cCfg = (id, type, data, options) => { if(chartInstances[id]) chartInstances[id].destroy(); const ctx = document.getElementById(id); if (ctx) chartInstances[id] = new Chart(ctx.getContext('2d'), { type, data, options }); };
-
-                    if (showCapital) {
-                        const anioDataGlobal = appData.filter(d => d.año === dashboardAnio);
-                        const mesDataGlobal = anioDataGlobal.filter(d => d.mes === dashboardMes);
-                        
-                        const labelsCapGlobal = mesDataGlobal.map(d => PUNTOS_VENTA[d.puntoVenta]);
-                        const dataCapGlobal = mesDataGlobal.map(d => d.valorMercaderia || 0);
-                        const bgCapGlobal = mesDataGlobal.map((d, i) => brandPalette[i % brandPalette.length]);
-                        
-                        cCfg('chartCapGlobalMix', 'doughnut', { labels: labelsCapGlobal, datasets: [{ data: dataCapGlobal, backgroundColor: bgCapGlobal, borderWidth: 0, hoverOffset: 10 }] }, { responsive: true, maintainAspectRatio: false, cutout: '65%' });
-                        
-                        const mesesYTD = [...new Set(anioDataGlobal.map(d => d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]);
-                        const evoCapGlobalData = mesesYTD.map(m => {
-                            return anioDataGlobal.filter(d => d.mes === m).reduce((sum, d) => sum + (d.valorMercaderia || 0), 0);
-                        });
-                        
-                        cCfg('chartCapGlobalEvo', 'line', { labels: mesesYTD, datasets: [{ label: 'Capital Total (ARS)', data: evoCapGlobalData, borderColor: '#8b5cf6', backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)', fill: true, tension: 0.3 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
-                    }
-
-                    if (showComercial) {
-                        const labels = datosLocalesAnio.map(d => d.mes);
-                        const dynamicBgs = datosLocalesAnio.map((d,i) => brandPalette[i % brandPalette.length]);
-
-                        cCfg('mixedChart', 'bar', { labels, datasets: [ { label: 'Facturación ($)', data: datosLocalesAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderRadius: 4, yAxisID: 'y' }, { label: 'Ticket Promedio ($)', data: datosLocalesAnio.map(d=>d.ticketPromedio), type: 'line', borderColor: '#EC008C', backgroundColor: '#EC008C', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { type: 'linear', position: 'left', ticks: { callback: formatMillones } }, y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: formatCurrency } } } });
-                        cCfg('pieChart', 'doughnut', { labels, datasets: [{ data: datosLocalesAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderWidth: 0, hoverOffset: 10 }] }, { responsive: true, maintainAspectRatio: false, cutout: '65%' });
-                        cCfg('turnosChart', 'bar', { labels, datasets: [ { label: 'Ventas Mañana ($)', data: datosLocalesAnio.map(d=>d.ventasManana), backgroundColor: '#EC008C', borderRadius: 4 }, { label: 'Ventas Tarde ($)', data: datosLocalesAnio.map(d=>Math.max(0, d.ventas - d.ventasManana)), backgroundColor: '#1D1D1B', borderRadius: 4 } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { ticks: { callback: formatMillones } } } });
-                        cCfg('traficoChart', 'line', { labels, datasets: [{ label: 'Volumen de Tickets', data: datosLocalesAnio.map(d=>d.tickets), borderColor: '#878787', backgroundColor: isDark ? 'rgba(135,135,135,0.1)' : 'rgba(135,135,135,0.05)', fill: true, tension: 0.4, borderWidth: 3, pointBackgroundColor: dynamicBgs }] }, { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: c => 'Tickets: ' + formatNumber(c.parsed.y) } } } });
-                        cCfg('unidadesChart', 'bar', { labels, datasets: [ { label: 'Unidades Vendidas', data: datosLocalesAnio.map(d=>d.productosVendidos||0), backgroundColor: dynamicBgs, borderRadius: 6, yAxisID: 'y' }, { label: 'UPT', data: datosLocalesAnio.map(d=>d.tickets>0?(d.productosVendidos/d.tickets).toFixed(2):0), type: 'line', borderColor: '#1D1D1B', backgroundColor: '#1D1D1B', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y1: { position: 'right', grid: { drawOnChartArea: false } } } });
-                        const dataCrec = datosLocalesAnio.map((d, i) => i === 0 ? 0 : ((d.ventas - datosLocalesAnio[i-1].ventas) / datosLocalesAnio[i-1].ventas) * 100);
-                        cCfg('crecimientoChart', 'bar', { labels, datasets: [{ label: 'Crecimiento MoM (%)', data: dataCrec, backgroundColor: dynamicBgs, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: c => c.dataIndex===0?'Mes Base':`Variación: ${c.parsed.y>0?'+':''}${c.parsed.y.toFixed(1)}%` } } } });
-
-                        // Gráficos Mensuales (Día y Hora)
-                        if (dMes && dMes.grillaDiaria) {
-                            let numDias = diasPorMes[dMes.mes] || 31;
-                            if (dMes.mes === 'Febrero' && esBisiesto(parseInt(dMes.año))) numDias = 29;
-
-                            let aggrVDia = new Array(numDias).fill(0);
-                            let aggrVHora = new Array(10).fill(0);
-
-                            for(let i=1; i<=numDias; i++) {
+                        let maxDia = "S/D", maxVDia = 0, maxHora = "S/D", maxVHora = 0;
+                        if (dMes.grillaDiaria) {
+                            for(let i=1; i<=31; i++) {
                                 if(dMes.grillaDiaria[i]) {
-                                    horasDinamicas.forEach((h, idxH) => {
-                                        let val = dMes.grillaDiaria[i][h]?.v || 0;
-                                        aggrVDia[i-1] += val;
-                                        aggrVHora[idxH] += val;
-                                    });
+                                    let sumaDia = 0; horasDinamicas.forEach(h => { sumaDia += (dMes.grillaDiaria[i][h]?.v || 0); });
+                                    if (sumaDia > maxVDia) { maxVDia = sumaDia; maxDia = `Día ${i}`; }
                                 }
                             }
-
-                            const colMes = brandPalette[datosLocalesAnio.findIndex(d => d.mes === dashboardMes) % brandPalette.length];
-                            cCfg('chartDias', 'bar', { labels: Array.from({length:numDias}, (_,i)=>`Día ${i+1}`), datasets: [{ label: `Ventas ${dMes.mes}`, data: aggrVDia, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
-                            cCfg('chartHora', 'bar', { labels: horasDinamicas.map(h=>`${h}:00`), datasets: [{ label: `Productividad Horaria`, data: aggrVHora, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                            horasDinamicas.forEach(h => {
+                                let sumaHora = 0; for(let i=1; i<=31; i++) { if(dMes.grillaDiaria[i]) sumaHora += (dMes.grillaDiaria[i][h]?.v || 0); }
+                                if (sumaHora > maxVHora) { maxVHora = sumaHora; maxHora = `${String(h).padStart(2, '0')}:00`; }
+                            });
                         }
+
+                        html += `
+                        <div class="space-y-6 animate-in slide-in-from-bottom-2">
+                            <!-- KPIs Acumulados -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-magenta"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase tracking-wider">Facturación Mensual (${dashboardMes})</p><h2 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(dMes.ventas)}</h2><p class="text-xs text-brand-magenta font-bold mt-1">${formatUSD(dMes.ventas/(dMes.cotizacionDolar||1))}</p></div>
+                                <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-black dark:border-gray-500"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase tracking-wider">Tráfico Mensual (Tickets)</p><h2 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatNumber(dMes.tickets)}</h2></div>
+                                <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-gray"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase tracking-wider">Ticket Promedio</p><h2 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(dMes.tickets>0 ? dMes.ventas/dMes.tickets : 0)}</h2></div>
+                                <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-slate-300 dark:border-slate-700"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase tracking-wider">Venta Diaria Promedio</p><h2 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(ventaDiariaMes)}</h2></div>
+                            </div>
+
+                            <!-- Detalle Operativo del Mes -->
+                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm mb-6">
+                                <h3 class="text-sm font-bold text-brand-black dark:text-white mb-4 flex items-center border-b border-gray-200 dark:border-slate-800 pb-2"><i data-lucide="search" class="text-brand-magenta w-4 h-4 mr-2"></i> Detalle Operativo Exacto (${dashboardMes})</h3>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">UPT</p><h4 class="text-xl font-black text-brand-black dark:text-white">${uptMes}</h4></div>
+                                    <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">Mejor Día</p><h4 class="text-lg font-black text-brand-black dark:text-white">${maxDia} <span class="text-xs font-normal text-brand-gray">(${formatMillones(maxVDia)})</span></h4></div>
+                                    <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">Hora Más Fuerte</p><h4 class="text-lg font-black text-brand-black dark:text-white">${maxHora}</h4></div>
+                                    <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">Tickets / Día Prom.</p><h4 class="text-xl font-black text-brand-black dark:text-white">${tksDiaMes}</h4></div>
+                                </div>
+                                <div class="flex flex-col md:flex-row justify-between items-center mt-4 pt-4 border-t border-gray-200 dark:border-slate-800 text-xs font-bold bg-white dark:bg-slate-900 p-3 rounded-lg">
+                                    <div class="flex items-center gap-2"><i data-lucide="sun" class="text-brand-magenta w-4 h-4"></i> <span class="text-brand-magenta">Facturación Mañana</span> <span class="text-lg text-brand-black dark:text-white ml-2">${formatCurrency(dMes.ventasManana)}</span></div>
+                                    <div class="flex items-center gap-2 mt-2 md:mt-0"><i data-lucide="moon" class="text-amber-500 w-4 h-4"></i> <span class="text-brand-gray dark:text-slate-400">Facturación Tarde</span> <span class="text-lg text-brand-black dark:text-white ml-2">${formatCurrency((dMes.ventas||0) - (dMes.ventasManana||0))}</span></div>
+                                </div>
+                            </div>
+
+                            <!-- Gráficos Comerciales -->
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Diaria (${dashboardMes})</h4><div class="chart-container"><canvas id="chartDias"></canvas></div></div>
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Productividad por Hora (${dashboardMes})</h4><div class="chart-container"><canvas id="chartHora"></canvas></div></div>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución Anual de Ingresos</h4><div class="chart-container"><canvas id="pieChart"></canvas></div></div>
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Rendimiento Operativo (Turnos)</h4><div class="chart-container"><canvas id="turnosChart"></canvas></div></div>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Anual (Ventas vs Ticket)</h4><div class="chart-container"><canvas id="mixedChart"></canvas></div></div>
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución de Tráfico Mensual</h4><div class="chart-container"><canvas id="traficoChart"></canvas></div></div>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Eficiencia (Unidades y UPT)</h4><div class="chart-container"><canvas id="unidadesChart"></canvas></div></div>
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Crecimiento MoM (%)</h4><div class="chart-container"><canvas id="crecimientoChart"></canvas></div></div>
+                            </div>
+
+                            <!-- Plan de Acción & Calendario -->
+                            <div class="bg-brand-black dark:bg-slate-900 text-white rounded-2xl shadow-xl p-8 border border-brand-black dark:border-slate-800 mt-6">
+                                <h2 class="text-xl font-bold mb-6 flex items-center border-b border-gray-700 dark:border-slate-800 pb-4"><i data-lucide="target" class="mr-3 text-brand-magenta"></i> Foco y Plan de Acción Estratégico</h2>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm text-gray-300 dark:text-slate-400">
+                                    <div><div class="flex items-center mb-2"><div class="bg-gray-800 dark:bg-slate-800 p-1.5 rounded mr-2"><i data-lucide="users" class="text-brand-magenta w-4 h-4"></i></div><h3 class="font-bold text-white">1. Cuidar el Tráfico</h3></div><p class="leading-relaxed text-xs">Observar volumen de tickets. Si bajan los ingresos al local, se requiere activación de marketing inmediato.</p></div>
+                                    <div><div class="flex items-center mb-2"><div class="bg-gray-800 dark:bg-slate-800 p-1.5 rounded mr-2"><i data-lucide="shopping-bag" class="text-brand-magenta w-4 h-4"></i></div><h3 class="font-bold text-white">2. Up-Selling Constante</h3></div><p class="leading-relaxed text-xs">Capacitar en "venta cruzada" en caja para mejorar el UPT y superar la barrera mínima estable mensual.</p></div>
+                                    <div><div class="flex items-center mb-2"><div class="bg-gray-800 dark:bg-slate-800 p-1.5 rounded mr-2"><i class="fas fa-bullseye text-brand-magenta w-4 h-4"></i></div><h3 class="font-bold text-white">3. Metas del Personal</h3></div><p class="leading-relaxed text-xs">Establecer el "Ticket Objetivo Mensual" para los vendedores por turno y atar un incentivo si logran ese monto.</p></div>
+                                    <div><div class="flex items-center mb-2"><div class="bg-gray-800 dark:bg-slate-800 p-1.5 rounded mr-2"><i data-lucide="clock" class="text-brand-magenta w-4 h-4"></i></div><h3 class="font-bold text-white">4. Balance de Horarios</h3></div><p class="leading-relaxed text-xs">Reforzar con vendedores top las horas pico identificadas y armar promociones en los valles horarios.</p></div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-8 border border-gray-100 dark:border-slate-800 mt-6">
+                                <h2 class="text-xl font-bold text-brand-black dark:text-white mb-6 flex items-center border-b border-gray-100 dark:border-slate-800 pb-4"><i data-lucide="calendar" class="mr-3 text-brand-magenta"></i> Calendario Comercial (Accesorios ARG)</h2>
+                                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                    ${Object.entries(eventosComerciales).map(([m, evt]) => `
+                                        <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border-t-2 ${m === dashboardMes ? 'border-brand-magenta shadow-md' : 'border-gray-200 dark:border-slate-800'}">
+                                            <h3 class="font-black ${m === dashboardMes ? 'text-brand-magenta' : 'text-brand-black dark:text-white'} text-xs uppercase mb-1">${m}</h3>
+                                            <p class="text-[10px] text-brand-gray dark:text-slate-400 font-semibold leading-tight">${evt}</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            ${!showCapital ? `
+                            <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-6 border border-brand-black dark:border-slate-800">
+                                <div class="flex items-center justify-between mb-4 border-b border-gray-700 dark:border-slate-800 pb-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 bg-brand-magenta/20 rounded-lg"><i data-lucide="file-text" class="text-brand-magenta"></i></div>
+                                        <h3 class="text-lg font-bold">Diagnóstico Ejecutivo Comercial <span id="diag-subtitle" class="text-sm font-normal text-brand-gray ml-2">(${dashboardMes})</span></h3>
+                                    </div>
+                                    <button onclick="toggleDiagModo()" id="btnToggleDiag" class="text-xs font-bold text-brand-magenta bg-brand-black dark:bg-slate-800 border border-brand-magenta/50 px-3 py-1.5 rounded-lg hover:bg-brand-magenta hover:text-white transition">Ver Resumen Anual</button>
+                                </div>
+                                <p id="texto-diagnostico" class="text-sm text-gray-300 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">${generarTextoDiagnosticoComercial(dMes, datosLocalAnio).mensual}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                        `;
                     }
-                }, 100);
+                }
+
+                // INFORME COMPLETO (Unificado)
+                if (showCapital && showComercial) {
+                    const dMesVentas = datosAnioGlobal.find(d=>d.mes===dashboardMes && d.puntoVenta===dashboardLocal && d.isVentasLoaded);
+                    const datosLocalAnio = datosAnioGlobal.filter(d => d.puntoVenta === dashboardLocal && d.isVentasLoaded);
+                    let textComercial = dMesVentas ? generarTextoDiagnosticoComercial(dMesVentas, datosLocalAnio).mensual : 'Sin datos comerciales para este mes en el local seleccionado.';
+                    
+                    let totalCapGlobal = 0; let cotiz = 1;
+                    dMesGlobal.forEach(d => { if(d.isStockLoaded || d.valorMercaderia > 0) { totalCapGlobal += (d.valorMercaderia || 0); if(d.cotizacionDolar>1) cotiz=d.cotizacionDolar; } });
+                    
+                    html += `
+                        <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
+                            <div class="flex items-center gap-3 mb-6 border-b border-gray-700 dark:border-slate-800 pb-4">
+                                <div class="p-2 bg-brand-magenta/20 rounded-lg"><i data-lucide="file-text" class="text-brand-magenta"></i></div>
+                                <h3 class="text-xl font-bold">Conclusiones del Período (${dashboardMes} ${dashboardAnio})</h3>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm text-gray-300 dark:text-slate-400 leading-relaxed">
+                                <div class="space-y-3">
+                                    <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Diagnóstico Comercial (${PUNTOS_VENTA[dashboardLocal]})</p>
+                                    <p class="whitespace-pre-wrap">${textComercial}</p>
+                                </div>
+                                <div class="space-y-3">
+                                    <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Diagnóstico Patrimonial Global</p>
+                                    <p class="whitespace-pre-wrap">A la fecha de cierre, el capital inmovilizado global de la empresa asciende a ${formatCurrency(totalCapGlobal)} (equivalente a ${formatUSD(totalCapGlobal / cotiz)}). Este informe incluye valorizaciones detalladas en el apartado de capital.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                main.innerHTML = html;
+                lucide.createIcons();
+                setTimeout(() => initChartsDashboard(datosAnioGlobal, dashboardMes, dashboardLocal), 100);
 
             } else if (activeTab === 'cargaVentas') {
                 document.getElementById('export-btn-container').style.display = 'none';
@@ -730,31 +682,35 @@
                 const docId = `${formVentas.mes}-${formVentas.año}-${formVentas.puntoVenta}`;
                 const currentRec = appData.find(d => d.dbId === docId);
                 const isBlocked = currentRec && currentRec.isVentasLoaded;
-                const optState = isBlocked ? 'disabled' : '';
-                const opClass = isBlocked ? 'opacity-50 cursor-not-allowed' : '';
+                
+                const disabledAttr = isBlocked ? 'disabled' : '';
+                const opacityClass = isBlocked ? 'opacity-50 cursor-not-allowed' : '';
 
                 let numDias = diasPorMes[formVentas.mes] || 31;
                 if (formVentas.mes === 'Febrero' && esBisiesto(parseInt(formVentas.año))) numDias = 29;
 
                 let filas = '';
                 for(let i=1; i<=numDias; i++) {
-                    let tdClass = (currentRec && currentRec.tiposDia && currentRec.tiposDia[i] !== 'normal') ? 'bg-gray-100 dark:bg-slate-800' : '';
-                    filas += `<tr class="border-b border-gray-200 dark:border-slate-800 hover:bg-brand-light dark:hover:bg-slate-800 transition-colors ${tdClass}">
+                    let tipoDia = (currentRec && currentRec.tiposDia && currentRec.tiposDia[i]) ? currentRec.tiposDia[i] : 'normal';
+                    let trClass = tipoDia !== 'normal' ? 'bg-gray-100 dark:bg-slate-800' : 'hover:bg-brand-light dark:hover:bg-slate-800 transition-colors';
+                    
+                    filas += `<tr class="border-b border-gray-200 dark:border-slate-800 ${trClass}">
                         <td class="p-2 border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 sticky left-0 z-10 text-center shadow-sm">
                             <div class="text-xs font-bold text-brand-black dark:text-white mb-1">Día ${i}</div>
-                            <select id="tipo_dia_${i}" onchange="cambiarTipoDia(${i}, this)" ${optState} class="text-[10px] p-1 w-full border border-gray-300 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-800 outline-none focus:ring-1 focus:ring-brand-magenta text-brand-black dark:text-white font-bold ${opClass}">
-                                <option value="normal" ${currentRec?.tiposDia?.[i]==='normal'?'selected':''}>Normal</option>
-                                <option value="domingo" ${currentRec?.tiposDia?.[i]==='domingo'?'selected':''}>Domingo</option>
-                                <option value="feriado" ${currentRec?.tiposDia?.[i]==='feriado'?'selected':''}>Feriado</option>
+                            <select id="tipo_dia_${i}" onchange="cambiarTipoDia(${i}, this)" ${disabledAttr} class="text-[10px] p-1 w-full border border-gray-300 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-800 outline-none focus:ring-1 focus:ring-brand-magenta text-brand-black dark:text-white font-bold cursor-pointer ${opacityClass}">
+                                <option value="normal" ${tipoDia==='normal'?'selected':''}>Normal</option>
+                                <option value="domingo" ${tipoDia==='domingo'?'selected':''}>Domingo</option>
+                                <option value="feriado" ${tipoDia==='feriado'?'selected':''}>Feriado</option>
                             </select>
                         </td>`;
                     horasDinamicas.forEach(h => {
-                        let bg = h <= 12 ? 'bg-amber-50/30 dark:bg-amber-900/10' : 'bg-brand-light/30 dark:bg-brand-magenta/5';
+                        let bg = h <= 12 ? 'bg-amber-50/50 dark:bg-amber-900/10' : 'bg-brand-light/30 dark:bg-brand-magenta/5';
                         let valV = currentRec?.grillaDiaria?.[i]?.[h]?.v || '';
                         let valT = currentRec?.grillaDiaria?.[i]?.[h]?.t || '';
-                        filas += `<td class="p-1 border-r border-gray-100 dark:border-slate-800 ${bg}">
-                            <input type="text" id="v_${i}_${h}" value="${valV}" placeholder="$ Venta" ${optState} class="w-full text-[10px] p-1.5 mb-1 border border-gray-200 dark:border-slate-600 rounded text-center bg-white dark:bg-slate-800 outline-none focus:ring-1 focus:ring-brand-magenta font-bold text-brand-black dark:text-white ${opClass}">
-                            <input type="text" id="t_${i}_${h}" value="${valT}" placeholder="Tkts" ${optState} class="w-full text-[10px] p-1.5 border border-gray-200 dark:border-slate-600 rounded text-center bg-white dark:bg-slate-800 outline-none focus:ring-1 focus:ring-brand-magenta font-bold text-brand-black dark:text-white ${opClass}">
+                        
+                        filas += `<td class="p-1 border-r border-gray-200 dark:border-slate-700 ${bg}">
+                            <input type="text" id="v_${i}_${h}" value="${valV}" placeholder="$ Venta" ${disabledAttr} class="w-full text-[10px] p-1.5 mb-1 border border-gray-300 dark:border-slate-600 rounded text-center bg-white dark:bg-slate-900 outline-none focus:ring-1 focus:ring-brand-magenta font-bold text-brand-black dark:text-white ${opacityClass}">
+                            <input type="text" id="t_${i}_${h}" value="${valT}" placeholder="Tickets" ${disabledAttr} class="w-full text-[10px] p-1.5 border border-gray-300 dark:border-slate-600 rounded text-center bg-white dark:bg-slate-900 outline-none focus:ring-1 focus:ring-brand-magenta font-bold text-brand-black dark:text-white ${opacityClass}">
                         </td>`;
                     });
                     filas += `</tr>`;
@@ -763,50 +719,55 @@
                 main.innerHTML = `
                     <div class="max-w-full mx-auto bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 animate-in fade-in">
                         <div class="mb-6 border-b border-gray-100 dark:border-slate-800 pb-4 flex justify-between items-center">
-                            <div><h2 class="text-2xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="keyboard" class="text-brand-magenta mr-2 w-6 h-6"></i> Carga Operativa (Día a Día)</h2><p class="text-brand-gray text-sm mt-1">Completa la grilla por hora. El sistema calculará la separación de turnos automáticamente.</p></div>
+                            <div><h2 class="text-2xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="keyboard" class="text-brand-magenta mr-2 w-6 h-6"></i> Carga Operativa (Súper Grilla)</h2><p class="text-brand-gray text-sm mt-1">Ingresa los datos por hora. El sistema calculará la Facturación Total, Tickets y Turnos automáticamente.</p></div>
                             ${isBlocked ? `<button onclick="editarRegistroActual('ventas')" class="bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta border border-brand-magenta/30 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-brand-magenta hover:text-white transition flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4"></i> Modificar Registro</button>` : ''}
                         </div>
                         
-                        ${isBlocked ? `<div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-6 rounded-r-xl flex items-center gap-3"><i data-lucide="lock" class="text-red-500 w-6 h-6"></i><div><h4 class="text-red-800 dark:text-red-400 font-bold text-sm">Registro Bloqueado</h4><p class="text-red-600 dark:text-red-300 text-xs mt-1">El mes de ${formVentas.mes} ya fue cargado. Presiona 'Modificar Registro' para editar.</p></div></div>` : ''}
+                        ${isBlocked ? `
+                            <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-6 rounded-r-xl flex items-center gap-3">
+                                <i data-lucide="lock" class="text-red-500 w-6 h-6"></i>
+                                <div><h4 class="text-red-800 dark:text-red-400 font-bold text-sm">Registro Bloqueado</h4><p class="text-red-600 dark:text-red-300 text-xs mt-1">El mes de ${formVentas.mes} ya fue cargado. Presiona 'Modificar Registro' para habilitar la edición.</p></div>
+                            </div>
+                        ` : ''}
 
                         <form onsubmit="submitVentasForm(event)" class="space-y-6" id="form-carga-ventas">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Local</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white" onchange="handleVentasForm('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${formVentas.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select></div>
-                                <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Mes</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white" onchange="handleVentasForm('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formVentas.mes===m?'selected':''}>${m}</option>`).join('')}</select></div>
+                                <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Local</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white cursor-pointer" onchange="handleVentasForm('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${formVentas.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select></div>
+                                <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Mes</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white cursor-pointer" onchange="handleVentasForm('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formVentas.mes===m?'selected':''}>${m}</option>`).join('')}</select></div>
                                 <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Año</label><input type="number" class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white" value="${formVentas.año}" onchange="handleVentasForm('año', this.value)" required></div>
-                                <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Total Unidades Vendidas</label><input type="text" id="input_unid_ventas" ${optState} class="w-full p-2.5 bg-white dark:bg-slate-800 border border-brand-magenta/40 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-brand-magenta text-brand-black dark:text-white ${opClass}" placeholder="Ej: 1450" value="${currentRec?.productosVendidos || formVentas.unidades}" onchange="handleVentasForm('unidades', this.value)" required></div>
+                                <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Total Unidades Vendidas del Mes</label><input type="text" ${disabledAttr} class="w-full p-2.5 bg-white dark:bg-slate-800 border border-brand-magenta/40 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-brand-magenta text-brand-black dark:text-white ${opacityClass}" placeholder="Ej: 1450" value="${currentRec?.productosVendidos || formVentas.unidades}" onchange="handleVentasForm('unidades', this.value)" required></div>
                             </div>
                             
-                            <div class="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                            <div class="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm relative">
                                 <div class="bg-brand-light dark:bg-brand-magenta/10 p-3 font-bold text-brand-magenta border-b border-gray-200 dark:border-slate-700 text-sm flex items-center justify-between">
-                                    <div class="flex items-center"><i data-lucide="grid" class="w-4 h-4 mr-2"></i> Matriz de Ingreso</div>
-                                    <div class="text-[10px] font-bold text-brand-gray bg-white dark:bg-slate-800 px-2 py-1 rounded shadow-sm">Si es Domingo/Feriado, cambie el tipo de día para promediar correctamente.</div>
+                                    <div class="flex items-center"><i data-lucide="grid" class="w-4 h-4 mr-2"></i> Grilla de Ingreso: Día a Día, Hora a Hora</div>
+                                    <div class="text-[10px] font-bold text-brand-gray bg-white dark:bg-slate-800 px-2 py-1 rounded shadow-sm">Si marcas un día como Domingo/Feriado, no sumará al divisor del promedio diario.</div>
                                 </div>
                                 <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
                                     <table class="w-full text-xs text-left border-collapse tabla-excel dark:text-gray-300">
                                         <thead class="bg-slate-50 dark:bg-slate-900">
                                             <tr>
                                                 <th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 min-w-[120px]">Día / Tipo</th>
-                                                <th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400">08:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400">09:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400">10:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400">11:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400">12:00</th>
-                                                <th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400">17:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400">18:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400">19:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400">20:00</th><th class="p-2 font-black text-center border-b border-gray-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400">21:00</th>
+                                                <th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400 bg-amber-50/30 dark:bg-amber-900/10">08:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400 bg-amber-50/30 dark:bg-amber-900/10">09:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400 bg-amber-50/30 dark:bg-amber-900/10">10:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400 bg-amber-50/30 dark:bg-amber-900/10">11:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-amber-600 dark:text-amber-400 bg-amber-50/30 dark:bg-amber-900/10">12:00</th>
+                                                <th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-brand-magenta bg-brand-light/30 dark:bg-brand-magenta/5">17:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-brand-magenta bg-brand-light/30 dark:bg-brand-magenta/5">18:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-brand-magenta bg-brand-light/30 dark:bg-brand-magenta/5">19:00</th><th class="p-2 font-black text-center border-r border-b border-gray-200 dark:border-slate-700 text-brand-magenta bg-brand-light/30 dark:bg-brand-magenta/5">20:00</th><th class="p-2 font-black text-center border-b border-gray-200 dark:border-slate-700 text-brand-magenta bg-brand-light/30 dark:bg-brand-magenta/5">21:00</th>
                                             </tr>
                                         </thead>
                                         <tbody>${filas}</tbody>
                                     </table>
                                 </div>
                             </div>
-                            <div class="flex justify-end"><button type="submit" id="btn-submit-ventas" ${optState} class="bg-brand-black text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition flex items-center ${opClass}"><i data-lucide="save" class="w-5 h-5 mr-2"></i> Calcular y Guardar</button></div>
+                            <div class="flex justify-end"><button type="submit" id="btn-submit-ventas" ${disabledAttr} class="bg-brand-black text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition flex items-center ${opacityClass}"><i data-lucide="calculator" class="w-5 h-5 mr-2"></i> Calcular y Guardar Mes</button></div>
                         </form>
                     </div>`;
                 lucide.createIcons();
             } else if (activeTab === 'cargaStock') {
                 document.getElementById('export-btn-container').style.display = 'none';
-                
+
                 const docId = `${formStock.mes}-${formStock.año}-${formStock.puntoVenta}`;
                 const currentRec = appData.find(d => d.dbId === docId);
                 const isBlocked = currentRec && (currentRec.isStockLoaded || currentRec.valorMercaderia > 0);
-                const optState = isBlocked ? 'disabled' : '';
-                const opClass = isBlocked ? 'opacity-50 cursor-not-allowed' : '';
+                const disabledAttr = isBlocked ? 'disabled' : '';
+                const opacityClass = isBlocked ? 'opacity-50 cursor-not-allowed' : '';
 
                 main.innerHTML = `
                     <div class="max-w-3xl mx-auto bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 animate-in fade-in">
@@ -815,23 +776,28 @@
                             ${isBlocked ? `<button onclick="editarRegistroActual('stock')" class="bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta border border-brand-magenta/30 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-brand-magenta hover:text-white transition flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4"></i> Modificar Registro</button>` : ''}
                         </div>
                         
-                        ${isBlocked ? `<div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-6 rounded-r-xl flex items-center gap-3"><i data-lucide="lock" class="text-red-500 w-6 h-6"></i><div><h4 class="text-red-800 dark:text-red-400 font-bold text-sm">Registro Bloqueado</h4><p class="text-red-600 dark:text-red-300 text-xs mt-1">El stock de ${formStock.mes} ya fue cargado. Presiona 'Modificar Registro' para habilitar la edición.</p></div></div>` : ''}
+                        ${isBlocked ? `
+                            <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 mb-6 rounded-r-xl flex items-center gap-3">
+                                <i data-lucide="lock" class="text-red-500 w-6 h-6"></i>
+                                <div><h4 class="text-red-800 dark:text-red-400 font-bold text-sm">Registro Bloqueado</h4><p class="text-red-600 dark:text-red-300 text-xs mt-1">El stock de ${formStock.mes} ya fue cargado. Presiona 'Modificar Registro' para habilitar la edición.</p></div>
+                            </div>
+                        ` : ''}
 
                         <form onsubmit="submitStockForm(event)" class="space-y-6" id="form-carga-stock">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Local</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white" onchange="handleStockForm('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).map(([k,v]) => `<option value="${k}" ${formStock.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select></div>
-                                <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Mes</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white" onchange="handleStockForm('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formStock.mes===m?'selected':''}>${m}</option>`).join('')}</select></div>
+                                <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Local</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white cursor-pointer" onchange="handleStockForm('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).map(([k,v]) => `<option value="${k}" ${formStock.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select></div>
+                                <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Mes</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white cursor-pointer" onchange="handleStockForm('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formStock.mes===m?'selected':''}>${m}</option>`).join('')}</select></div>
                                 <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Año</label><input type="number" class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white" value="${formStock.año}" onchange="handleStockForm('año', this.value)" required></div>
-                                <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Dólar</label><input type="text" ${optState} class="w-full p-2.5 bg-white dark:bg-slate-800 border border-brand-magenta/40 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-brand-magenta text-brand-black dark:text-white ${opClass}" value="${currentRec?.cotizacionDolar || formStock.cotizacionDolar}" onchange="handleStockForm('cotizacionDolar', this.value)" required></div>
+                                <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Dólar</label><input type="text" ${disabledAttr} class="w-full p-2.5 bg-white dark:bg-slate-800 border border-brand-magenta/40 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-brand-magenta text-brand-black dark:text-white ${opacityClass}" value="${currentRec?.cotizacionDolar || formStock.cotizacionDolar}" onchange="handleStockForm('cotizacionDolar', this.value)" required></div>
                             </div>
                             <div class="bg-white dark:bg-slate-950 p-6 rounded-xl border border-gray-200 dark:border-slate-800">
                                 <div class="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-slate-800 pb-4">
                                     <div><h3 class="text-sm font-bold text-brand-black dark:text-white uppercase">Rubros</h3><p id="stock-sum-display" class="text-lg font-black text-brand-magenta">Total: ${formatCurrency(currentRec?.valorMercaderia || 0)}</p></div>
-                                    <button type="button" onClick="addStockRow()" id="btn-add-stock" ${optState} class="bg-brand-gray text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-black transition flex items-center ${opClass}"><i data-lucide="plus" class="w-4 h-4 mr-1"></i> Fila</button>
+                                    <button type="button" onClick="addStockRow()" id="btn-add-stock" ${disabledAttr} class="bg-brand-gray text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-black transition flex items-center ${opacityClass}"><i data-lucide="plus" class="w-4 h-4 mr-1"></i> Fila</button>
                                 </div>
                                 <div id="stock-rows-container" class="space-y-3"></div>
                             </div>
-                            <div class="flex justify-end"><button type="submit" id="btn-submit-stock" ${optState} class="bg-brand-black text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition flex items-center ${opClass}"><i data-lucide="save" class="w-5 h-5 mr-2"></i> Guardar Inventario</button></div>
+                            <div class="flex justify-end"><button type="submit" id="btn-submit-stock" ${disabledAttr} class="bg-brand-black text-white px-10 py-4 rounded-xl font-bold uppercase shadow-xl hover:bg-black transition flex items-center ${opacityClass}"><i data-lucide="save" class="w-5 h-5 mr-2"></i> Guardar Inventario</button></div>
                         </form>
                     </div>
                 `;
@@ -840,13 +806,14 @@
                 const stockToRender = (isBlocked && currentRec.stock) ? currentRec.stock : formStock.stock;
                 cont.innerHTML = stockToRender.map((item, idx) => `
                     <div class="flex gap-2 items-center">
-                        <div class="flex-[2]"><input type="text" placeholder="Rubro Ej: Carteras" class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta font-bold ${opClass}" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required ${optState} /></div>
-                        <div class="flex-1"><input type="text" placeholder="Cant." class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-center text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta font-bold ${opClass}" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required ${optState}/></div>
-                        <div class="flex-[1.5] relative"><span class="absolute left-3 top-2.5 text-gray-400 font-bold">$</span><input type="text" placeholder="Total" class="w-full pl-7 p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta ${opClass}" value="${item.valor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required ${optState}/></div>
-                        ${stockToRender.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2 text-red-400 hover:text-brand-magenta transition ${opClass}" ${optState}><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : '<div class="w-9"></div>'}
+                        <div class="flex-[2]"><input type="text" placeholder="Rubro Ej: Carteras" class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta font-bold ${opacityClass}" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required ${disabledAttr} /></div>
+                        <div class="flex-1"><input type="text" placeholder="Cant." class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-center text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta font-bold ${opacityClass}" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required ${disabledAttr}/></div>
+                        <div class="flex-[1.5] relative"><span class="absolute left-3 top-2.5 text-gray-400 font-bold">$</span><input type="text" placeholder="Total" class="w-full pl-7 p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${item.valor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required ${disabledAttr}/></div>
+                        ${stockToRender.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2 text-red-400 hover:text-brand-magenta transition ${opacityClass}" ${disabledAttr}><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : '<div class="w-9"></div>'}
                     </div>
                 `).join('');
                 lucide.createIcons();
+
             } else {
                 document.getElementById('export-btn-container').style.display = 'none';
                 main.innerHTML = `
@@ -902,7 +869,119 @@
             }
         };
 
-        render();
+        window.toggleDiagModo = function() {
+            const el = document.getElementById('texto-diagnostico');
+            const btn = document.getElementById('btnToggleDiag');
+            const sub = document.getElementById('diag-subtitle');
+            
+            let datosAnioGlobal = appData.filter(d => d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
+            let datosLocalAnio = datosAnioGlobal.filter(d => d.puntoVenta === dashboardLocal && d.isVentasLoaded);
+            const dMes = datosLocalAnio.find(d=>d.mes===dashboardMes) || datosLocalAnio[datosLocalAnio.length-1];
+
+            if (!dMes) return;
+            const diagData = generarTextoDiagnosticoComercial(dMes, datosLocalAnio);
+
+            if (btn.innerText.includes('Anual')) {
+                el.innerText = diagData.anual;
+                btn.innerText = 'Ver Resumen Mensual';
+                sub.innerText = `(Acumulado ${dashboardAnio})`;
+            } else {
+                el.innerText = diagData.mensual;
+                btn.innerText = 'Ver Resumen Anual';
+                sub.innerText = `(${dashboardMes})`;
+            }
+        };
+
+        function initChartsDashboard(dataAnioGlobal, mesSeleccionado) {
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? '#334155' : '#e2e8f0';
+            const textColor = isDark ? '#878787' : '#878787';
+
+            Chart.defaults.color = textColor;
+            Chart.defaults.scale.grid.color = gridColor;
+            Chart.defaults.scale.ticks.color = textColor;
+            Chart.defaults.font.family = "'Nunito', sans-serif";
+
+            Object.keys(chartInstances).forEach(k => { if(chartInstances[k]) chartInstances[k].destroy(); });
+            chartInstances = {};
+
+            const cCfg = (id, type, data, options) => { const ctx = document.getElementById(id); if (ctx) chartInstances[id] = new Chart(ctx.getContext('2d'), { type, data, options }); };
+            
+            const showComercial = dashboardSubTab === 'comercial' || dashboardSubTab === 'completo';
+            const showCapital = dashboardSubTab === 'capital' || dashboardSubTab === 'completo';
+
+            // --- GRÁFICOS GLOBALES CAPITAL ---
+            if (showCapital) {
+                const mesesData = [...new Set(dataAnioGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).map(d=>d.mes))];
+                if (document.getElementById('chartYoyCapital')) {
+                    const capYoy = mesesData.map(m => dataAnioGlobal.filter(d => d.mes === m).reduce((a,c) => a + (c.valorMercaderia||0), 0));
+                    cCfg('chartYoyCapital', 'line', { labels: mesesData, datasets: [{ label: 'Capital Global ($)', data: capYoy, borderColor: '#8b5cf6', backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.2)', fill: true, tension: 0.3, borderWidth: 3, pointBackgroundColor: '#8b5cf6' }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                }
+                
+                const dMesG = dataAnioGlobal.filter(d=>d.mes===mesesData[mesesData.length-1]);
+                if (document.getElementById('chartCapitalMix')) {
+                    const capPorLocal = {};
+                    dMesG.forEach(d => capPorLocal[PUNTOS_VENTA[d.puntoVenta]] = (d.valorMercaderia||0));
+                    cCfg('chartCapitalMix', 'doughnut', { labels: Object.keys(capPorLocal), datasets: [{ data: Object.values(capPorLocal), backgroundColor: brandPalette, borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } });
+                }
+                
+                const capCat = {};
+                dMesG.forEach(d => { if(d.stock) d.stock.forEach(s => { if(!capCat[s.categoria]) capCat[s.categoria]={v:0,c:0}; capCat[s.categoria].v+=s.valor; capCat[s.categoria].c+=s.cantidad; }); });
+                const topCat = Object.keys(capCat).map(k=>({cat:k, val:capCat[k].v, avg: capCat[k].c>0?capCat[k].v/capCat[k].c:0})).sort((a,b)=>b.val-a.val);
+                
+                if (document.getElementById('chartCapitalCat')) {
+                    cCfg('chartCapitalCat', 'bar', { labels: topCat.map(c=>c.cat), datasets: [{ label: 'Capital ($)', data: topCat.map(c=>c.val), backgroundColor: '#10b981', borderRadius: 4 }] }, { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: formatMillones } } } });
+                }
+                if (document.getElementById('chartRubroAvg')) {
+                    cCfg('chartRubroAvg', 'bar', { labels: topCat.map(c=>c.cat), datasets: [{ label: 'Costo Promedio ($)', data: topCat.map(c=>c.avg), backgroundColor: '#EC008C', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: formatCurrency } } } });
+                }
+            }
+
+            // --- GRÁFICOS INDIVIDUALES COMERCIAL ---
+            if (showComercial) {
+                const dataAnio = dataAnioGlobal.filter(d => d.puntoVenta === dashboardLocal && d.isVentasLoaded);
+                if(dataAnio.length === 0) return;
+
+                const labels = dataAnio.map(d => d.mes);
+                const dCols = dataAnio.map((d,i) => brandPalette[i % brandPalette.length]);
+                const dVentas = dataAnio.map(d => d.ventas || 0);
+
+                if (document.getElementById('mixedChart')) {
+                    cCfg('mixedChart', 'bar', { labels, datasets: [ { label: 'Facturación ($)', data: dVentas, backgroundColor: dCols, borderRadius: 6, yAxisID: 'y' }, { label: 'Ticket Promedio ($)', data: dataAnio.map(d=>d.ticketPromedio), type: 'line', borderColor: '#EC008C', backgroundColor: '#EC008C', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { type: 'linear', position: 'left', ticks: { callback: formatMillones } }, y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: formatCurrency } } } });
+                    cCfg('pieChart', 'doughnut', { labels, datasets: [{ data: dVentas, backgroundColor: dCols, borderWidth: 0, hoverOffset: 10 }] }, { responsive: true, maintainAspectRatio: false, cutout: '70%' });
+                    cCfg('turnosChart', 'bar', { labels, datasets: [ { label: 'Turno Mañana ($)', data: dataAnio.map(d=>d.ventasManana), backgroundColor: '#EC008C', borderRadius: 4 }, { label: 'Turno Tarde ($)', data: dataAnio.map(d=>Math.max(0, d.ventas - d.ventasManana)), backgroundColor: '#1D1D1B', borderRadius: 4 } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { ticks: { callback: formatMillones } } } });
+                    cCfg('traficoChart', 'line', { labels, datasets: [{ label: 'Volumen Tickets', data: dataAnio.map(d=>d.tickets), borderColor: '#878787', backgroundColor: isDark ? 'rgba(135,135,135,0.1)' : 'rgba(135,135,135,0.05)', fill: true, tension: 0.4, borderWidth: 3, pointBackgroundColor: dCols }] }, { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: c => 'Tickets: ' + formatNumber(c.parsed.y) } } } });
+                    cCfg('unidadesChart', 'bar', { labels, datasets: [ { label: 'Unidades Vendidas', data: dataAnio.map(d=>d.productosVendidos||0), backgroundColor: dCols, borderRadius: 6, yAxisID: 'y' }, { label: 'UPT', data: dataAnio.map(d=>d.tickets>0?(d.productosVendidos/d.tickets).toFixed(2):0), type: 'line', borderColor: '#1D1D1B', backgroundColor: '#1D1D1B', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y1: { position: 'right', grid: { drawOnChartArea: false } } } });
+                    const dataCrec = dataAnio.map((d, i) => i === 0 ? 0 : ((d.ventas - dataAnio[i-1].ventas) / dataAnio[i-1].ventas) * 100);
+                    cCfg('crecimientoChart', 'bar', { labels, datasets: [{ label: 'Crecimiento MoM (%)', data: dataCrec, backgroundColor: dCols, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: c => c.dataIndex===0?'Mes Base':`Variación: ${c.parsed.y>0?'+':''}${c.parsed.y.toFixed(1)}%` } } } });
+                }
+
+                const dMes = dataAnio.find(d => d.mes === dashboardMes);
+                if (dMes && document.getElementById('chartDias')) {
+                    let numDias = diasPorMes[dMes.mes] || 31;
+                    if (dMes.mes === 'Febrero' && esBisiesto(parseInt(dashboardAnio))) numDias = 29;
+
+                    let aggrVDia = new Array(numDias).fill(0);
+                    let aggrVHora = new Array(10).fill(0);
+
+                    if (dMes.grillaDiaria) {
+                        for(let i=1; i<=numDias; i++) {
+                            if(dMes.grillaDiaria[i]) {
+                                horasDinamicas.forEach((h, idxH) => {
+                                    let val = dMes.grillaDiaria[i][h]?.v || 0;
+                                    aggrVDia[i-1] += val;
+                                    aggrVHora[idxH] += val;
+                                });
+                            }
+                        }
+                    }
+
+                    const colMes = brandPalette[dataAnio.findIndex(d => d.mes === dashboardMes) % brandPalette.length];
+                    cCfg('chartDias', 'bar', { labels: Array.from({length:numDias}, (_,i)=>`Día ${i+1}`), datasets: [{ label: `Ventas ${dMes.mes}`, data: aggrVDia, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                    cCfg('chartHora', 'bar', { labels: horasDinamicas.map(h=>`${h}:00`), datasets: [{ label: `Productividad Horaria`, data: aggrVHora, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                }
+            }
+        }
     </script>
 </body>
 </html>
