@@ -587,7 +587,29 @@
                             </div>
                             <p class="text-gray-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiag}</p>
                         </div>
+                    `;
+                }
 
+                if (showCapital) {
+                    let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
+                    let c_dMes = capData.find(d => d.mes === dashboardMes);
+                    const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData);
+                    const textoDiagCap = modoDiagnostico === 'mensual' ? txtDiagCap.mensual : txtDiagCap.anual;
+                    
+                    panelesFinales += `
+                        <div class="bg-slate-800 dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-slate-700 dark:border-slate-800 print-break-inside-avoid">
+                            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-700 dark:border-slate-800 pb-4 gap-4">
+                                <h2 class="text-2xl font-bold flex items-center"><i data-lucide="briefcase" class="text-indigo-400 mr-3"></i> Diagnóstico Patrimonial <span class="text-lg text-slate-400 ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
+                                <button onclick="toggleDiagMode()" class="bg-slate-700 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
+                            </div>
+                            <p class="text-slate-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCap}</p>
+                        </div>
+                    `;
+                }
+
+                // Agregamos Foco y Calendario al final de los textos (Solo si Comercial está activo)
+                if (showComercial) {
+                     panelesFinales += `
                         <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
                             <h2 class="text-2xl font-bold mb-6 flex items-center border-b border-gray-800 dark:border-slate-800 pb-4"><i data-lucide="target" class="mr-3 text-brand-magenta"></i> Foco y Plan de Acción</h2>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -614,23 +636,6 @@
                                 <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Noviembre</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Cyber Monday</li><li>Black Friday</li></ul></div>
                                 <div class="bg-white/5 p-3 rounded-xl border-t-4 border-brand-magenta shadow-sm"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase tracking-tighter">Diciembre</h3><ul class="text-xs text-brand-gray font-semibold space-y-1"><li>Navidad</li><li>Año Nuevo</li></ul></div>
                             </div>
-                        </div>
-                    `;
-                }
-
-                if (showCapital) {
-                    let capData = appData.filter(d => d.puntoVenta === dashboardLocal && d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
-                    let c_dMes = capData.find(d => d.mes === dashboardMes);
-                    const txtDiagCap = generarTextoDiagnosticoCapital(c_dMes, capData);
-                    const textoDiagCap = modoDiagnostico === 'mensual' ? txtDiagCap.mensual : txtDiagCap.anual;
-                    
-                    panelesFinales += `
-                        <div class="bg-slate-800 dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-slate-700 dark:border-slate-800 print-break-inside-avoid">
-                            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-700 dark:border-slate-800 pb-4 gap-4">
-                                <h2 class="text-2xl font-bold flex items-center"><i data-lucide="briefcase" class="text-indigo-400 mr-3"></i> Diagnóstico Patrimonial <span class="text-lg text-slate-400 ml-3 font-normal">(${modoDiagnostico === 'mensual' ? dashboardMes : 'Anual'})</span></h2>
-                                <button onclick="toggleDiagMode()" class="bg-slate-700 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm flex items-center shrink-0"><i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Cambiar a ${modoDiagnostico === 'mensual' ? 'Anual' : 'Mensual'}</button>
-                            </div>
-                            <p class="text-slate-300 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap">${textoDiagCap}</p>
                         </div>
                     `;
                 }
