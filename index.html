@@ -143,6 +143,7 @@
         let localActual = 'concordia';
         let anioActual = new Date().getFullYear().toString();
         let mesActual = null;
+        let modoDiagnostico = 'mensual';
 
         let isAdmin = false; 
         const ADMIN_PIN = "1234"; 
@@ -159,6 +160,12 @@
             mes: 'Enero', año: new Date().getFullYear().toString(), puntoVenta: 'concordia', cotizacionDolar: '',
             unidades: '', stock: [{ categoria: '', cantidad: '', valor: '' }],
             isEditingVentas: false, isEditingStock: false
+        };
+
+        window.toggleTheme = () => {
+            const html = document.documentElement; html.classList.toggle('dark');
+            localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+            render(); 
         };
 
         function showModal({ type, title, message, iconClass, iconBg, confirmText, confirmClass, onConfirm }) {
@@ -195,6 +202,9 @@
                 passContainer.classList.add('hidden'); newCancelBtn.classList.remove('hidden');
                 newConfirmBtn.onclick = () => { modal.classList.add('hidden'); if(onConfirm) onConfirm(); };
                 newCancelBtn.onclick = () => modal.classList.add('hidden');
+            } else if (type === 'alert') {
+                passContainer.classList.add('hidden'); newCancelBtn.classList.add('hidden');
+                newConfirmBtn.onclick = () => { modal.classList.add('hidden'); if(onConfirm) onConfirm(); };
             }
             modal.classList.remove('hidden');
             if (type === 'password') setTimeout(() => passInput.focus(), 100);
@@ -217,11 +227,14 @@
                         snapshot.forEach(doc => { appData.push({ dbId: doc.id, ...doc.data() }); });
                         render();
                     });
+                } else {
+                    statusEl.innerHTML = '<i class="fas fa-cloud text-red-500"></i>';
                 }
             });
         }
 
-        const formatCurrency = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val || 0);
+        const formatCurrency = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(val || 0);
+        const formatUSD = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(val || 0);
         const formatNumber = (val) => new Intl.NumberFormat('es-AR').format(val || 0);
         const formatMillones = (val) => isNaN(val) ? '$0M' : '$' + (val / 1000000).toFixed(1) + 'M';
 
@@ -248,6 +261,7 @@
             if (field === 'puntoVenta' || field === 'mes' || field === 'año') {
                 formState.isEditingVentas = false; formState.isEditingStock = false;
                 if (activeTab === 'cargaVentas') window.cambiarMesGrilla();
+                if (activeTab === 'cargaStock') window.renderFormStockRows();
                 render(); 
             }
         };
@@ -334,6 +348,8 @@
             render();
         };
 
+        window.mostrarDiagnosticoAnual = function() { modoDiagnostico = 'anual'; render(); };
+        window.mostrarDiagnosticoMensual = function() { modoDiagnostico = 'mensual'; render(); };
         window.guardarDiagnostico = async (texto) => {
             if (!currentUser || !mesActual) return;
             const docId = `${mesActual}-${anioActual}-${localActual}`;
@@ -377,19 +393,13 @@
                     if (tipo === 'normal' || ventaDia > 0) diasOperativos++;
                 }
 
-                if (!hayDatosEnGrilla) { alert("Error: Debes ingresar datos en la grilla diaria."); return; }
+                if (!hayDatosEnGrilla) { showModal({ type: 'alert', title: 'Error', message: 'Debes ingresar datos en la grilla diaria.', iconClass: 'fa-exclamation-triangle text-red-600', iconBg: 'bg-red-100' }); return; }
 
                 dataToSave.isVentasLoaded = true;
-                dataToSave.ventas = ventasTotales;
-                dataToSave.ventasMañana = ventasManana;
-                dataToSave.ventasTarde = ventasTarde;
-                dataToSave.tickets = ticketsTotales;
-                dataToSave.ticketsMañana = ticketsManana;
-                dataToSave.ticketsTarde = ticketsTarde;
+                dataToSave.ventas = ventasTotales; dataToSave.ventasMañana = ventasManana; dataToSave.ventasTarde = ventasTarde;
+                dataToSave.tickets = ticketsTotales; dataToSave.ticketsMañana = ticketsManana; dataToSave.ticketsTarde = ticketsTarde;
                 dataToSave.productosVendidos = window.parseInputNumber(formState.unidades);
-                dataToSave.grillaDiaria = grillaDiaria;
-                dataToSave.tiposDia = tiposDia;
-                dataToSave.diasOperativos = diasOperativos;
+                dataToSave.grillaDiaria = grillaDiaria; dataToSave.tiposDia = tiposDia; dataToSave.diasOperativos = diasOperativos;
             } else {
                 dataToSave.isStockLoaded = true;
                 const stockLimpio = formState.stock.filter(s => s.categoria).map(s => ({
@@ -410,7 +420,7 @@
         };
 
         window.deleteRecord = async (dbId) => { 
-            showModal({ type: 'confirm', title: 'Eliminar Registro', message: '¿Eliminar este mes completo?', iconClass: 'fas fa-trash-alt text-red-600', iconBg: 'bg-red-100', confirmText: 'Eliminar', confirmClass: 'bg-red-600 hover:bg-red-700', onConfirm: async () => { await deleteDoc(doc(db, 'registros_mensuales', dbId)); render(); } });
+            showModal({ type: 'confirm', title: 'Eliminar Registro', message: '¿Eliminar este mes completo?', iconClass: 'fa-trash-alt text-red-600', iconBg: 'bg-red-100', confirmText: 'Eliminar', confirmClass: 'bg-red-600 hover:bg-red-700', onConfirm: async () => { await deleteDoc(doc(db, 'registros_mensuales', dbId)); render(); } });
         };
 
         window.exportarPDF = function() {
@@ -459,7 +469,7 @@
                             <h1 class="text-3xl font-extrabold text-brand-black dark:text-white flex flex-wrap items-center gap-2">
                                 Dashboard: 
                                 <select onchange="cambiarDashLocal(this.value)" class="bg-transparent border-b-4 border-brand-magenta text-brand-magenta cursor-pointer outline-none hover:text-brand-magentaHover pb-1">
-                                    ${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${localActual===k?'selected':''}>${v}</option>`).join('')}
+                                    ${Object.entries(PUNTOS_VENTA).map(([k,v]) => `<option value="${k}" ${localActual===k?'selected':''}>${v}</option>`).join('')}
                                 </select>
                                 <span class="text-gray-400 mx-2">|</span>
                                 <select onchange="cambiarDashAnio(this.value)" class="bg-transparent border-b-4 border-brand-black dark:border-gray-500 text-brand-black dark:text-gray-300 cursor-pointer outline-none hover:text-gray-700 pb-1">
@@ -479,113 +489,141 @@
                 if(!mesActual || !dataAnio.find(d=>d.mes===mesActual)) mesActual = dataAnio[dataAnio.length-1].mes;
                 const dMes = dataAnio.find(d=>d.mes===mesActual);
 
-                let sumVentas=0, sumTickets=0, sumDias=0;
+                let sumVentas=0, sumTickets=0, sumDias=0, ultCapital=0, capUSD=0;
                 dataAnio.forEach(d => { sumVentas+=(d.ventas||0); sumTickets+=(d.tickets||0); sumDias+=(d.diasOperativos||30); });
                 let tPromAnual = sumTickets>0 ? sumVentas/sumTickets : 0;
                 let vDiaAnual = sumDias>0 ? sumVentas/sumDias : 0;
+                ultCapital = dMes.valorMercaderia || 0;
+                capUSD = ultCapital / (dMes.cotizacionDolar || 1);
 
                 html += `
                 <div id="pdf-export-area" class="w-full space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-brand-magenta card-hover"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Facturación Anual</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatMillones(sumVentas)}</h2></div>
-                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-brand-black dark:border-gray-600 card-hover"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Tráfico (Tickets)</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatNumber(sumTickets)}</h2></div>
-                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-pink-400 card-hover"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Ticket Promedio</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatCurrency(tPromAnual)}</h2></div>
-                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-gray-400 card-hover"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Venta Diaria Prom.</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatCurrency(vDiaAnual)}</h2></div>
+                        ${localActual === 'deposito' ? `
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-indigo-500 card-hover md:col-span-2"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Capital Global (${dMes.mes})</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatCurrency(ultCapital)}</h2><p class="text-sm font-bold text-indigo-500 mt-1">${formatUSD(capUSD)}</p></div>
+                        ` : `
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-brand-magenta card-hover"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Facturación Anual</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatMillones(sumVentas)}</h2></div>
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-brand-black dark:border-gray-600 card-hover"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Tráfico Anual (Tkts)</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatNumber(sumTickets)}</h2></div>
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-pink-400 card-hover"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Ticket Promedio</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatCurrency(tPromAnual)}</h2></div>
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border-b-4 border-gray-400 card-hover"><p class="text-xs text-brand-gray font-bold uppercase tracking-wider">Venta Diaria Prom.</p><h2 class="text-3xl font-black text-brand-black dark:text-white mt-2">${formatCurrency(vDiaAnual)}</h2></div>
+                        `}
                     </div>
 
                     <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800">
                         <div class="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-slate-800 pb-2">
-                            <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center"><i class="fas fa-calendar-check mr-3 text-brand-magenta"></i> Resumen del Mes</h3>
+                            <h3 class="text-xl font-bold text-brand-black dark:text-white flex items-center"><i class="fas fa-calendar-check mr-3 text-brand-magenta"></i> Detalle Operativo y Patrimonial</h3>
                             <select onchange="cambiarDashMes(this.value)" class="bg-transparent border-b-2 border-brand-magenta text-brand-magenta cursor-pointer outline-none font-bold text-lg">
                                 ${dataAnio.map(d => `<option value="${d.mes}" ${mesActual===d.mes?'selected':''}>${d.mes}</option>`).join('')}
                             </select>
                         </div>
                         
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Venta Total</p><h4 class="text-xl font-black text-brand-black dark:text-white">${formatCurrency(dMes.ventas)}</h4></div>
-                            <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Ticket Prom.</p><h4 class="text-xl font-black text-brand-black dark:text-white">${formatCurrency(dMes.tickets>0?dMes.ventas/dMes.tickets:0)}</h4></div>
-                            <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Total Tickets</p><h4 class="text-xl font-black text-brand-black dark:text-white">${formatNumber(dMes.tickets)}</h4></div>
-                            <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">UPT</p><h4 class="text-xl font-black text-brand-black dark:text-white">${dMes.tickets>0?(dMes.productosVendidos/dMes.tickets).toFixed(2):'0.00'}</h4></div>
+                            <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Venta Mes</p><h4 class="text-xl font-black text-brand-black dark:text-white">${formatCurrency(dMes.ventas)}</h4></div>
+                            <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Capital Mes</p><h4 class="text-xl font-black text-indigo-500">${formatCurrency(dMes.valorMercaderia)}</h4></div>
+                            ${localActual !== 'deposito' ? `
+                                <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Tickets Mes</p><h4 class="text-xl font-black text-brand-black dark:text-white">${formatNumber(dMes.tickets)}</h4></div>
+                                <div class="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800"><p class="text-[10px] font-bold text-brand-gray uppercase mb-1">Eficiencia UPT</p><h4 class="text-xl font-black text-brand-black dark:text-white">${dMes.tickets>0?(dMes.productosVendidos/dMes.tickets).toFixed(2):'0.00'}</h4></div>
+                            ` : ''}
                         </div>
 
+                        ${localActual !== 'deposito' ? `
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Diaria (${dMes.mes})</h4><div class="chart-container"><canvas id="chartDias"></canvas></div></div>
+                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Productividad Horaria (${dMes.mes})</h4><div class="chart-container"><canvas id="chartHora"></canvas></div></div>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Valorización por Rubro (${dMes.mes})</h4><div class="chart-container"><canvas id="chartRubroAvg"></canvas></div></div>
+                    </div>
+
+                    <div class="html2pdf__page-break"></div>
+
+                    <!-- Gráficos de Evolución YoY y MoM -->
+                    ${localActual !== 'deposito' ? `
+                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800 mb-6"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2"><i class="fas fa-chart-bar mr-2 text-brand-magenta"></i>Evolución Anual: Ventas vs Ticket Promedio</h3><div class="chart-container"><canvas id="mixedChart"></canvas></div></div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2 flex items-center"><i class="fas fa-clock mr-2 text-brand-black dark:text-gray-400"></i> Ventas: Mañana vs Tarde</h3><div class="chart-container"><canvas id="turnosChart"></canvas></div></div>
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2 flex items-center"><i class="fas fa-users mr-2 text-brand-magenta"></i> Evolución de Tráfico (Tickets)</h3><div class="chart-container"><canvas id="traficoChart"></canvas></div></div>
+                        </div>
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Diaria</h4><div class="chart-container"><canvas id="chartDias"></canvas></div></div>
-                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Productividad Horaria</h4><div class="chart-container"><canvas id="chartHora"></canvas></div></div>
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2 flex items-center"><i class="fas fa-box-open mr-2 text-brand-magenta"></i> Eficiencia UPT (Unidades por Ticket)</h3><div class="chart-container"><canvas id="unidadesChart"></canvas></div></div>
+                            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2 flex items-center"><i class="fas fa-arrow-trend-up mr-2 text-brand-magenta"></i> Crecimiento MoM (%)</h3><div class="chart-container"><canvas id="crecimientoChart"></canvas></div></div>
                         </div>
-                    </div>
-
-                    <div class="html2pdf__page-break"></div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 lg:col-span-2 border border-gray-100 dark:border-slate-800"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2"><i class="fas fa-chart-bar mr-2 text-brand-magenta"></i>Evolución Anual: Ventas vs Ticket Prom.</h3><div class="chart-container"><canvas id="mixedChart"></canvas></div></div>
-                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2"><i class="fas fa-chart-pie mr-2 text-brand-magenta"></i>Distribución (YTD)</h3><div class="chart-container"><canvas id="pieChart"></canvas></div></div>
-                    </div>
-
-                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800">
-                        <h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2 flex items-center"><i class="fas fa-clock mr-2 text-brand-black dark:text-gray-400"></i> Rendimiento Operativo: Mañana vs Tarde</h3>
-                        <div class="chart-container"><canvas id="turnosChart"></canvas></div>
-                    </div>
-
-                    <div class="html2pdf__page-break"></div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2 flex items-center"><i class="fas fa-users mr-2 text-brand-magenta"></i> Evolución Tráfico</h3><div class="chart-container"><canvas id="traficoChart"></canvas></div></div>
-                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2 flex items-center"><i class="fas fa-arrow-trend-up mr-2 text-brand-magenta"></i> Crecimiento MoM (%)</h3><div class="chart-container"><canvas id="crecimientoChart"></canvas></div></div>
-                    </div>
+                    ` : `
+                        <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800 mb-6"><h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2"><i class="fas fa-chart-bar mr-2 text-brand-magenta"></i>Evolución Anual del Capital</h3><div class="chart-container"><canvas id="mixedChart"></canvas></div></div>
+                    `}
                     
-                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-slate-800">
-                        <h3 class="text-lg font-bold dark:text-white mb-4 border-b border-gray-100 dark:border-slate-800 pb-2 flex items-center"><i class="fas fa-box-open mr-2 text-brand-magenta"></i> Eficiencia: Unidades y UPT</h3>
-                        <div class="chart-container"><canvas id="unidadesChart"></canvas></div>
-                    </div>
-
                     <div class="html2pdf__page-break"></div>
 
-                    <!-- Paneles Originales de Diagnóstico -->
-                    <div class="bg-brand-black rounded-2xl shadow-xl p-8 text-white mt-8 print-break-inside-avoid">
-                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-brand-darkGray pb-4 gap-4">
-                            <h2 class="text-2xl font-bold flex items-center"><i class="fas fa-comment-dots mr-3 text-brand-magenta"></i> Diagnóstico Ejecutivo <span class="text-lg text-brand-lightGray ml-3 font-normal">(${mesActual})</span></h2>
+                    <!-- Paneles Textuales e Informativos Originales -->
+                    <div class="bg-brand-black dark:bg-slate-900 rounded-2xl shadow-xl p-8 text-white mt-8 print-break-inside-avoid border border-brand-black dark:border-slate-800">
+                        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-brand-darkGray dark:border-slate-700 pb-4 gap-4">
+                            <h2 class="text-2xl font-bold flex items-center"><i class="fas fa-comment-dots mr-3 text-brand-magenta"></i> Diagnóstico Ejecutivo 
+                                <span class="text-lg text-brand-lightGray ml-3 font-normal">${modoDiagnostico === 'anual' ? '(Histórico Anual)' : `(Mensual: ${mesActual})`}</span>
+                            </h2>
+                            <div class="flex gap-2">
+                                <button onclick="mostrarDiagnosticoAnual()" id="btnDiagAnual" class="${modoDiagnostico==='anual'?'hidden':''} bg-brand-darkGray dark:bg-slate-800 hover:bg-brand-magenta text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm border border-gray-600 dark:border-slate-600 flex items-center shrink-0 print-hidden"><i class="fas fa-globe mr-2"></i> Ver Anual</button>
+                                <button onclick="mostrarDiagnosticoMensual()" id="btnDiagMensual" class="${modoDiagnostico==='mensual'?'hidden':''} bg-brand-darkGray dark:bg-slate-800 hover:bg-brand-magenta text-white text-sm px-4 py-2 rounded-lg transition-colors font-bold shadow-sm border border-gray-600 dark:border-slate-600 flex items-center shrink-0 print-hidden"><i class="fas fa-calendar-day mr-2"></i> Ver Mensual</button>
+                            </div>
                         </div>
-                        <div class="bg-[#222222] rounded-xl border border-brand-darkGray hover:border-brand-magenta transition-colors">
-                            <div id="texto-diagnostico" onblur="guardarDiagnostico(this.innerText)" class="text-gray-300 leading-relaxed outline-none rounded-xl p-6 transition-all min-h-[100px] whitespace-pre-wrap">${dMes.diagnosticoExtendido || 'Agrega un diagnóstico haciendo doble clic aquí (Requiere Modo Edición).'}</div>
+                        <div class="bg-[#222222] dark:bg-slate-950 rounded-xl border border-brand-darkGray dark:border-slate-700 hover:border-brand-magenta transition-colors">
+                            <div id="texto-diagnostico" onblur="guardarDiagnostico(this.innerText)" class="text-gray-300 dark:text-gray-400 leading-relaxed outline-none rounded-xl p-6 transition-all min-h-[100px] whitespace-pre-wrap">${modoDiagnostico==='anual'?(dMes.diagnosticoAnual||'Agrega tu diagnóstico anual...'):(dMes.diagnosticoExtendido||'Generando diagnóstico...')}</div>
                         </div>
                     </div>
 
-                    <div class="bg-brand-black rounded-2xl shadow-xl p-8 text-white mt-8 print-break-inside-avoid">
-                        <h2 class="text-2xl font-bold mb-6 flex items-center border-b border-brand-darkGray pb-4"><i class="fas fa-heart mr-3 text-brand-magenta"></i> Foco y Plan de Acción</h2>
+                    ${localActual !== 'deposito' ? `
+                    <div class="bg-brand-black dark:bg-slate-900 rounded-2xl shadow-xl p-8 text-white mt-8 print-break-inside-avoid border border-brand-black dark:border-slate-800">
+                        <h2 class="text-2xl font-bold mb-6 flex items-center border-b border-brand-darkGray dark:border-slate-700 pb-4"><i class="fas fa-heart mr-3 text-brand-magenta"></i> Foco y Plan de Acción</h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                            <div><div class="flex items-center mb-3"><div class="bg-[#222222] p-2 rounded-lg mr-3"><i class="fas fa-chart-line text-brand-magenta text-xl"></i></div><h3 class="font-bold text-lg">1. Cuidar el Tráfico</h3></div><p class="text-gray-400 text-sm leading-relaxed font-semibold">Observar de cerca el volumen de tickets. Si baja, se requiere activación de marketing inmediato.</p></div>
-                            <div><div class="flex items-center mb-3"><div class="bg-[#222222] p-2 rounded-lg mr-3"><i class="fas fa-hand-holding-usd text-brand-magenta text-xl"></i></div><h3 class="font-bold text-lg">2. Up-Selling</h3></div><p class="text-gray-400 text-sm leading-relaxed font-semibold">Capacitar en "venta cruzada" en caja es vital para superar la barrera mínima estable de UPT.</p></div>
-                            <div><div class="flex items-center mb-3"><div class="bg-[#222222] p-2 rounded-lg mr-3"><i class="fas fa-bullseye text-brand-magenta text-xl"></i></div><h3 class="font-bold text-lg">3. Metas del Mes</h3></div><p class="text-gray-400 text-sm leading-relaxed font-semibold">Establecer el "Ticket Objetivo Mensual" para los vendedores y atar un incentivo si lo logran.</p></div>
-                            <div><div class="flex items-center mb-3"><div class="bg-[#222222] p-2 rounded-lg mr-3"><i class="fas fa-users-cog text-brand-magenta text-xl"></i></div><h3 class="font-bold text-lg">4. Balance Operativo</h3></div><p class="text-gray-400 text-sm leading-relaxed font-semibold">Utilizar el mapa de calor para redistribuir staff. Reforzar con vendedores top las horas pico.</p></div>
+                            <div><div class="flex items-center mb-3"><div class="bg-[#222222] dark:bg-slate-950 p-2 rounded-lg mr-3"><i class="fas fa-chart-line text-brand-magenta text-xl"></i></div><h3 class="font-bold text-lg">1. Cuidar el Tráfico</h3></div><p class="text-gray-400 dark:text-gray-500 text-sm leading-relaxed font-semibold">Observar de cerca el volumen de tickets. Si baja, se requiere activación de marketing inmediato.</p></div>
+                            <div><div class="flex items-center mb-3"><div class="bg-[#222222] dark:bg-slate-950 p-2 rounded-lg mr-3"><i class="fas fa-hand-holding-usd text-brand-magenta text-xl"></i></div><h3 class="font-bold text-lg">2. Up-Selling</h3></div><p class="text-gray-400 dark:text-gray-500 text-sm leading-relaxed font-semibold">Capacitar en "venta cruzada" en caja es vital para superar la barrera mínima estable de UPT.</p></div>
+                            <div><div class="flex items-center mb-3"><div class="bg-[#222222] dark:bg-slate-950 p-2 rounded-lg mr-3"><i class="fas fa-bullseye text-brand-magenta text-xl"></i></div><h3 class="font-bold text-lg">3. Metas del Mes</h3></div><p class="text-gray-400 dark:text-gray-500 text-sm leading-relaxed font-semibold">Establecer el "Ticket Objetivo Mensual" para los vendedores y atar un incentivo si lo logran.</p></div>
+                            <div><div class="flex items-center mb-3"><div class="bg-[#222222] dark:bg-slate-950 p-2 rounded-lg mr-3"><i class="fas fa-users-cog text-brand-magenta text-xl"></i></div><h3 class="font-bold text-lg">4. Balance Operativo</h3></div><p class="text-gray-400 dark:text-gray-500 text-sm leading-relaxed font-semibold">Utilizar el mapa de calor para redistribuir staff. Reforzar con vendedores top las horas pico.</p></div>
                         </div>
                     </div>
+                    ` : ''}
 
-                    <div class="bg-brand-black rounded-2xl shadow-xl p-8 text-white mt-8 mb-8 print-break-inside-avoid">
-                        <h2 class="text-2xl font-bold mb-6 flex items-center border-b border-brand-darkGray pb-4"><i class="fas fa-calendar-star mr-3 text-brand-magenta"></i> Calendario Comercial ARG</h2>
+                    <div class="bg-brand-black dark:bg-slate-900 rounded-2xl shadow-xl p-8 text-white mt-8 mb-8 print-break-inside-avoid border border-brand-black dark:border-slate-800">
+                        <h2 class="text-2xl font-bold mb-6 flex items-center border-b border-brand-darkGray dark:border-slate-700 pb-4"><i class="fas fa-calendar-star mr-3 text-brand-magenta"></i> Calendario Comercial ARG</h2>
                         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Enero</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-gift w-4"></i> Reyes Magos</li><li><i class="fas fa-sun w-4"></i> Liq. Verano</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Febrero</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-heart w-4"></i> San Valentín</li><li><i class="fas fa-masks-theater w-4"></i> Carnaval</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Marzo</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-female w-4"></i> Día Mujer</li><li><i class="fas fa-leaf w-4"></i> Otoño/Inv.</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Abril</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-egg w-4"></i> Pascuas</li><li><i class="fas fa-tshirt w-4"></i> Media Temp.</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Mayo</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-fire w-4"></i> Hot Sale</li><li><i class="fas fa-flag w-4"></i> Feriados</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Junio</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-user-tie w-4"></i> Día Padre</li><li><i class="fas fa-snowflake w-4"></i> Invierno</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Julio</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-user-friends w-4"></i> Día Amigo</li><li><i class="fas fa-tags w-4"></i> Liq. Inv.</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Agosto</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-child w-4"></i> Infancias</li><li><i class="fas fa-box-open w-4"></i> Remate</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Septiembre</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-flower w-4"></i> Primavera</li><li><i class="fas fa-glasses w-4"></i> Prim/Ver.</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Octubre</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-crown w-4"></i> Día Madre</li><li><i class="fas fa-ghost w-4"></i> Halloween</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Noviembre</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-laptop w-4"></i> Cyber Mon.</li><li><i class="fas fa-shopping-bag w-4"></i> Black Fri.</li></ul></div>
-                            <div class="bg-[#222222] p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Diciembre</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-tree w-4 text-emerald-400"></i> Navidad</li><li><i class="fas fa-glass-cheers w-4"></i> Año Nuevo</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Enero</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-gift w-4"></i> Reyes Magos</li><li><i class="fas fa-sun w-4"></i> Liq. Verano</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Febrero</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-heart w-4"></i> San Valentín</li><li><i class="fas fa-masks-theater w-4"></i> Carnaval</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Marzo</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-female w-4"></i> Día Mujer</li><li><i class="fas fa-leaf w-4"></i> Otoño/Inv.</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Abril</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-egg w-4"></i> Pascuas</li><li><i class="fas fa-tshirt w-4"></i> Media Temp.</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Mayo</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-fire w-4"></i> Hot Sale</li><li><i class="fas fa-flag w-4"></i> Feriados</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Junio</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-user-tie w-4"></i> Día Padre</li><li><i class="fas fa-snowflake w-4"></i> Invierno</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Julio</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-user-friends w-4"></i> Día Amigo</li><li><i class="fas fa-tags w-4"></i> Liq. Inv.</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Agosto</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-child w-4"></i> Infancias</li><li><i class="fas fa-box-open w-4"></i> Remate</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Septiembre</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-flower w-4"></i> Primavera</li><li><i class="fas fa-glasses w-4"></i> Prim/Ver.</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Octubre</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-crown w-4"></i> Día Madre</li><li><i class="fas fa-ghost w-4"></i> Halloween</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Noviembre</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-laptop w-4"></i> Cyber Mon.</li><li><i class="fas fa-shopping-bag w-4"></i> Black Fri.</li></ul></div>
+                            <div class="bg-[#222222] dark:bg-slate-950 p-3 rounded-xl border-t-4 border-brand-magenta"><h3 class="font-black text-brand-magenta mb-2 text-sm uppercase">Diciembre</h3><ul class="text-xs text-gray-400 space-y-1"><li><i class="fas fa-tree w-4 text-emerald-400"></i> Navidad</li><li><i class="fas fa-glass-cheers w-4"></i> Año Nuevo</li></ul></div>
                         </div>
                     </div>
                 </div>`;
                 
-                main.innerHTML = htmlDashboard;
-                
                 const diagBox = document.getElementById('texto-diagnostico');
                 if (diagBox) {
                     diagBox.setAttribute('contenteditable', isAdmin ? 'true' : 'false');
-                    if(isAdmin) { diagBox.classList.add('hover:ring-2', 'cursor-text'); diagBox.title = "Clic para editar."; } 
-                    else { diagBox.classList.remove('hover:ring-2', 'cursor-text'); diagBox.title = "Bloqueado en Modo Lectura."; }
+                    if(isAdmin) { diagBox.classList.add('hover:ring-2', 'cursor-text'); } 
+                    else { diagBox.classList.remove('hover:ring-2', 'cursor-text'); }
+                    
+                    // Auto-generar diagnóstico si está vacío (solo locales)
+                    if (localActual !== 'deposito' && modoDiagnostico === 'mensual' && !dMes.diagnosticoExtendido) {
+                        const ventasTarde = dMes.ventas - dMes.ventasManana;
+                        const turnoFuerte = ventasTarde > dMes.ventasManana ? 'Tarde' : 'Mañana';
+                        const pctTurno = dMes.ventas > 0 ? ((Math.max(ventasTarde, dMes.ventasManana) / dMes.ventas) * 100).toFixed(1) : 0;
+                        let maxHoraV = -1; let picoHora = "S/D";
+                        if(dMes.grillaDiaria) {
+                            horasDinamicas.forEach(h => {
+                                let sumHora = 0; for(let i=1; i<=31; i++) { if(dMes.grillaDiaria[i]) sumHora += (dMes.grillaDiaria[i][h]?.v || 0); }
+                                if (sumHora > maxHoraV && sumHora > 0) { maxHoraV = sumHora; picoHora = `${String(h).padStart(2, '0')}:00`; }
+                            });
+                        }
+                        const upt = dMes.tickets > 0 ? (dMes.productosVendidos / dMes.tickets).toFixed(2) : 0;
+                        diagBox.innerText = `Durante el mes de ${dMes.mes} ${anioActual}, el Local ${PUNTOS_VENTA[localActual]} registró una facturación total de ${formatCurrency(dMes.ventas)}. El ticket promedio se ubicó en ${formatCurrency(dMes.ticketPromedio)} con un UPT de ${upt} artículos/cliente.\n\nEl turno ${turnoFuerte} lideró los ingresos (${pctTurno}%). La hora pico de facturación se dio a las ${picoHora} hs.`;
+                        window.guardarDiagnostico(diagBox.innerText);
+                    }
                 }
 
                 setTimeout(() => {
@@ -603,27 +641,37 @@
                     const labels = dataAnio.map(d => d.mes);
                     const dynamicBgs = dataAnio.map((d,i) => paleta[i % paleta.length]);
 
-                    cCfg('mixedChart', 'bar', { labels, datasets: [ { label: 'Facturación', data: dataAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderRadius: 4, yAxisID: 'y' }, { label: 'Ticket Prom.', data: dataAnio.map(d=>d.tickets>0?d.ventas/d.tickets:0), type: 'line', borderColor: '#EC008C', backgroundColor: '#EC008C', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, scales: { y: { type: 'linear', position: 'left', ticks: { callback: formatMillones } }, y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } } } });
-                    cCfg('pieChart', 'doughnut', { labels, datasets: [{ data: dataAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, cutout: '65%' });
-                    cCfg('turnosChart', 'bar', { labels, datasets: [ { label: 'Ventas Mañana', data: dataAnio.map(d=>d.ventasMañana||0), backgroundColor: '#EC008C', borderRadius: 4 }, { label: 'Ventas Tarde', data: dataAnio.map(d=>d.ventasTarde||0), backgroundColor: '#1D1D1B', borderRadius: 4 } ] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
-                    cCfg('traficoChart', 'line', { labels, datasets: [{ label: 'Tickets', data: dataAnio.map(d=>d.tickets), borderColor: '#878787', backgroundColor: isDark?'rgba(135,135,135,0.1)':'rgba(135,135,135,0.05)', fill: true, tension: 0.3, borderWidth: 3, pointBackgroundColor: dynamicBgs }] }, { responsive: true, maintainAspectRatio: false });
-                    cCfg('unidadesChart', 'bar', { labels, datasets: [ { label: 'Unidades', data: dataAnio.map(d=>d.productosVendidos), backgroundColor: dynamicBgs, borderRadius: 4, yAxisID: 'y' }, { label: 'UPT', data: dataAnio.map(d=>d.tickets>0?(d.productosVendidos/d.tickets).toFixed(2):0), type: 'line', borderColor: '#1D1D1B', backgroundColor: '#1D1D1B', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, scales: { y1: { position: 'right', grid: { drawOnChartArea: false } } } });
-                    const dCrec = dataAnio.map((d, i) => i === 0 ? 0 : ((d.ventas - dataAnio[i-1].ventas) / dataAnio[i-1].ventas) * 100);
-                    cCfg('crecimientoChart', 'bar', { labels, datasets: [{ label: 'Crecimiento %', data: dCrec, backgroundColor: dynamicBgs, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false });
+                    if (localActual === 'deposito') {
+                        cCfg('mixedChart', 'bar', { labels, datasets: [ { label: 'Capital', data: dataAnio.map(d=>d.valorMercaderia), backgroundColor: dynamicBgs, borderRadius: 4 } ] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                    } else {
+                        cCfg('mixedChart', 'bar', { labels, datasets: [ { label: 'Facturación', data: dataAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderRadius: 4, yAxisID: 'y' }, { label: 'Ticket Prom.', data: dataAnio.map(d=>d.ticketPromedio), type: 'line', borderColor: '#EC008C', backgroundColor: '#EC008C', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, scales: { y: { type: 'linear', position: 'left', ticks: { callback: formatMillones } }, y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } } } });
+                        cCfg('pieChart', 'doughnut', { labels, datasets: [{ data: dataAnio.map(d=>d.ventas), backgroundColor: dynamicBgs, borderWidth: 0 }] }, { responsive: true, maintainAspectRatio: false, cutout: '65%' });
+                        cCfg('turnosChart', 'bar', { labels, datasets: [ { label: 'Ventas Mañana', data: dataAnio.map(d=>d.ventasManana||0), backgroundColor: '#EC008C', borderRadius: 4 }, { label: 'Ventas Tarde', data: dataAnio.map(d=>d.ventasTarde||0), backgroundColor: '#1D1D1B', borderRadius: 4 } ] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                        cCfg('traficoChart', 'line', { labels, datasets: [{ label: 'Tickets', data: dataAnio.map(d=>d.tickets), borderColor: '#878787', backgroundColor: isDark?'rgba(135,135,135,0.1)':'rgba(135,135,135,0.05)', fill: true, tension: 0.3, borderWidth: 3, pointBackgroundColor: dynamicBgs }] }, { responsive: true, maintainAspectRatio: false });
+                        cCfg('unidadesChart', 'bar', { labels, datasets: [ { label: 'Unidades', data: dataAnio.map(d=>d.productosVendidos), backgroundColor: dynamicBgs, borderRadius: 4, yAxisID: 'y' }, { label: 'UPT', data: dataAnio.map(d=>d.tickets>0?(d.productosVendidos/d.tickets).toFixed(2):0), type: 'line', borderColor: '#1D1D1B', backgroundColor: '#1D1D1B', borderWidth: 3, pointBackgroundColor: '#fff', tension: 0.3, yAxisID: 'y1' } ] }, { responsive: true, maintainAspectRatio: false, scales: { y1: { position: 'right', grid: { drawOnChartArea: false } } } });
+                        const dCrec = dataAnio.map((d, i) => i === 0 ? 0 : ((d.ventas - dataAnio[i-1].ventas) / dataAnio[i-1].ventas) * 100);
+                        cCfg('crecimientoChart', 'bar', { labels, datasets: [{ label: 'Crecimiento %', data: dCrec, backgroundColor: dynamicBgs, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false });
 
-                    let numDias = diasPorMes[dMes.mes] || 31;
-                    if (dMes.mes === 'Febrero' && esBisiesto(parseInt(anioActual))) numDias = 29;
-                    let aggrVDia = new Array(numDias).fill(0); let aggrVHora = new Array(10).fill(0);
-                    if (dMes.grillaDiaria) {
-                        for(let i=1; i<=numDias; i++) {
-                            if(dMes.grillaDiaria[i]) {
-                                horasDinamicas.forEach((h, idxH) => { let val = dMes.grillaDiaria[i][h]?.v || 0; aggrVDia[i-1] += val; aggrVHora[idxH] += val; });
+                        let numDias = diasPorMes[dMes.mes] || 31;
+                        if (dMes.mes === 'Febrero' && esBisiesto(parseInt(anioActual))) numDias = 29;
+                        let aggrVDia = new Array(numDias).fill(0); let aggrVHora = new Array(10).fill(0);
+                        if (dMes.grillaDiaria) {
+                            for(let i=1; i<=numDias; i++) {
+                                if(dMes.grillaDiaria[i]) {
+                                    horasDinamicas.forEach((h, idxH) => { let val = dMes.grillaDiaria[i][h]?.v || 0; aggrVDia[i-1] += val; aggrVHora[idxH] += val; });
+                                }
                             }
                         }
+                        const colMes = paleta[dataAnio.findIndex(d => d.mes === mesActual) % paleta.length];
+                        cCfg('chartDias', 'bar', { labels: Array.from({length:numDias}, (_,i)=>`Día ${i+1}`), datasets: [{ label: 'Ventas Diarias', data: aggrVDia, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                        cCfg('chartHora', 'bar', { labels: horasDinamicas.map(h=>`${h}:00`), datasets: [{ label: 'Productividad Hora', data: aggrVHora, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
                     }
-                    const colMes = paleta[dataAnio.findIndex(d => d.mes === mesActual) % paleta.length];
-                    cCfg('chartDias', 'bar', { labels: Array.from({length:numDias}, (_,i)=>`Día ${i+1}`), datasets: [{ label: 'Ventas Diarias', data: aggrVDia, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
-                    cCfg('chartHora', 'bar', { labels: horasDinamicas.map(h=>`${h}:00`), datasets: [{ label: 'Productividad Hora', data: aggrVHora, backgroundColor: colMes, borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+
+                    // Gráfico Rubros (Aplica a todos)
+                    const capPorCat = {};
+                    if (dMes.stock) dMes.stock.forEach(i => { if(!capPorCat[i.categoria]) capPorCat[i.categoria] = 0; capPorCat[i.categoria] += i.valor; });
+                    const catArr = Object.keys(capPorCat).map(k => ({n: k, v: capPorCat[k]})).sort((a,b)=>b.v-a.v);
+                    cCfg('chartRubroAvg', 'bar', { labels: catArr.map(c=>c.n), datasets: [{ label: 'Capital', data: catArr.map(c=>c.v), backgroundColor: '#EC008C', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
 
                 }, 100);
 
