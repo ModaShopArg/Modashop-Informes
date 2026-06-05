@@ -370,12 +370,13 @@
             mesesConVentas.forEach(m => {
                 const records = datosGlobal.filter(d => d.mes === m && d.isVentasLoaded && d.puntoVenta !== 'deposito');
                 if (records.length > 0) {
-                    let aggr = { mes: m, año: anio, puntoVenta: 'todos', isVentasLoaded: true, ventas: 0, ventasManana: 0, tickets: 0, productosVendidos: 0, diasOperativos: 0, grillaDiaria: {} };
+                    let aggr = { mes: m, año: anio, puntoVenta: 'todos', isVentasLoaded: true, ventas: 0, ventasManana: 0, tickets: 0, ticketsManana: 0, productosVendidos: 0, diasOperativos: 0, grillaDiaria: {} };
                     
                     records.forEach(r => {
                         aggr.ventas += (r.ventas || 0);
                         aggr.ventasManana += (r.ventasManana || 0);
                         aggr.tickets += (r.tickets || 0);
+                        aggr.ticketsManana += (r.ticketsManana || 0);
                         aggr.productosVendidos += (r.productosVendidos || 0);
                         aggr.diasOperativos = Math.max(aggr.diasOperativos, r.diasOperativos || 30);
                         
@@ -919,6 +920,14 @@
                             }
                         }
 
+                        // Cálculo Tickets por turno (Mes Actual)
+                        let tksMesM = dMes.ticketsManana;
+                        if(tksMesM === undefined && dMes.grillaDiaria) {
+                            tksMesM = 0;
+                            for(let i=1; i<=31; i++){ if(dMes.grillaDiaria[i]){ horasDinamicas.forEach(h=>{ if(h<=12) tksMesM+=(dMes.grillaDiaria[i][h]?.t||0); }); } }
+                        } else { tksMesM = tksMesM || 0; }
+                        let tksMesT = Math.max(0, (dMes.tickets||0) - tksMesM);
+
                         html += `
                         <div class="space-y-6 animate-in slide-in-from-bottom-2">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 print-break-inside-avoid">
@@ -929,7 +938,10 @@
                             </div>
 
                             <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm mb-6 print-break-inside-avoid">
-                                <h3 class="text-sm font-bold text-brand-black dark:text-white mb-4 flex items-center border-b border-gray-200 dark:border-slate-800 pb-2"><i data-lucide="search" class="text-brand-magenta w-4 h-4 mr-2"></i> Detalle Operativo Exacto (${dashboardMes})</h3>
+                                <h3 class="text-sm font-bold text-brand-black dark:text-white mb-4 flex items-center justify-between border-b border-gray-200 dark:border-slate-800 pb-2">
+                                    <span class="flex items-center"><i data-lucide="search" class="text-brand-magenta w-4 h-4 mr-2"></i> Detalle Operativo Exacto (${dashboardMes})</span>
+                                    <span class="text-[10px] font-bold bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta px-2 py-1 rounded">${formatNumber(dMes.tickets || 0)} Tickets Totales</span>
+                                </h3>
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">UPT</p><h4 class="text-xl font-black text-brand-black dark:text-white">${uptMes}</h4></div>
                                     <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">Mejor Día</p><h4 class="text-lg font-black text-brand-black dark:text-white">${maxDia} <span class="text-xs font-normal text-brand-gray">(${formatMillones(maxVDia)})</span></h4></div>
@@ -937,8 +949,18 @@
                                     <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">Tickets / Día Prom.</p><h4 class="text-xl font-black text-brand-black dark:text-white">${tksDiaMes}</h4></div>
                                 </div>
                                 <div class="flex flex-col md:flex-row justify-between items-center mt-4 pt-4 border-t border-gray-200 dark:border-slate-800 text-xs font-bold bg-white dark:bg-slate-900 p-3 rounded-lg print-break-inside-avoid">
-                                    <div class="flex items-center gap-2"><i data-lucide="sun" class="text-brand-magenta w-4 h-4"></i> <span class="text-brand-magenta">Facturación Mañana</span> <span class="text-lg text-brand-black dark:text-white ml-2">${formatCurrency(dMes.ventasManana)}</span></div>
-                                    <div class="flex items-center gap-2 mt-2 md:mt-0"><i data-lucide="moon" class="text-amber-500 w-4 h-4"></i> <span class="text-brand-gray dark:text-slate-400">Facturación Tarde</span> <span class="text-lg text-brand-black dark:text-white ml-2">${formatCurrency((dMes.ventas||0) - (dMes.ventasManana||0))}</span></div>
+                                    <div class="flex items-center gap-2">
+                                        <i data-lucide="sun" class="text-brand-magenta w-4 h-4"></i> 
+                                        <span class="text-brand-magenta">Facturación Mañana</span> 
+                                        <span class="text-lg text-brand-black dark:text-white ml-2">${formatCurrency(dMes.ventasManana)}</span>
+                                        <span class="text-[10px] text-brand-gray bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded ml-2">${formatNumber(tksMesM)} tkts</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-2 md:mt-0">
+                                        <i data-lucide="moon" class="text-amber-500 w-4 h-4"></i> 
+                                        <span class="text-brand-gray dark:text-slate-400">Facturación Tarde</span> 
+                                        <span class="text-lg text-brand-black dark:text-white ml-2">${formatCurrency((dMes.ventas||0) - (dMes.ventasManana||0))}</span>
+                                        <span class="text-[10px] text-brand-gray bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded ml-2">${formatNumber(tksMesT)} tkts</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1020,10 +1042,23 @@
                                 });
                             }
                             
+                            // Cálculo Tickets por turno (Historial)
+                            let tksMananaH = dHist.ticketsManana;
+                            if(tksMananaH === undefined && dHist.grillaDiaria) {
+                                tksMananaH = 0;
+                                for(let i=1; i<=31; i++){ if(dHist.grillaDiaria[i]){ horasDinamicas.forEach(h=>{ if(h<=12) tksMananaH+=(dHist.grillaDiaria[i][h]?.t||0); }); } }
+                            } else { tksMananaH = tksMananaH || 0; }
+                            let tksTardeH = Math.max(0, (dHist.tickets||0) - tksMananaH);
+                            
                             html += `
                                 <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm transition-transform hover:-translate-y-1 print-break-inside-avoid">
-                                    <h3 class="text-sm font-bold text-brand-black dark:text-white mb-3 flex items-center border-b border-gray-200 dark:border-slate-800 pb-2">
-                                        <span class="text-brand-magenta mr-2 uppercase tracking-wide">${dHist.mes}</span> <span class="text-brand-gray text-xs">Detalle Operativo Exacto</span>
+                                    <h3 class="text-sm font-bold text-brand-black dark:text-white mb-3 flex items-center justify-between border-b border-gray-200 dark:border-slate-800 pb-2">
+                                        <div class="flex items-center">
+                                            <span class="text-brand-magenta mr-2 uppercase tracking-wide">${dHist.mes}</span> <span class="text-brand-gray text-xs">Detalle Operativo Exacto</span>
+                                        </div>
+                                        <div class="text-[10px] font-bold bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta px-2 py-1 rounded">
+                                            ${formatNumber(dHist.tickets || 0)} Tickets Totales
+                                        </div>
                                     </h3>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">UPT</p><h4 class="text-lg font-black text-brand-black dark:text-white">${uptH}</h4></div>
@@ -1032,8 +1067,18 @@
                                         <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">Tickets / Día Prom.</p><h4 class="text-lg font-black text-brand-black dark:text-white">${tksDiaH}</h4></div>
                                     </div>
                                     <div class="flex flex-col md:flex-row justify-between items-center mt-3 pt-3 border-t border-gray-200 dark:border-slate-800 text-xs font-bold bg-white dark:bg-slate-900 p-2.5 rounded-lg">
-                                        <div class="flex items-center gap-2"><i data-lucide="sun" class="text-brand-magenta w-4 h-4"></i> <span class="text-brand-magenta">Fact. Mañana</span> <span class="text-base text-brand-black dark:text-white ml-1">${formatCurrency(dHist.ventasManana)}</span></div>
-                                        <div class="flex items-center gap-2 mt-2 md:mt-0"><i data-lucide="moon" class="text-amber-500 w-4 h-4"></i> <span class="text-brand-gray dark:text-slate-400">Fact. Tarde</span> <span class="text-base text-brand-black dark:text-white ml-1">${formatCurrency((dHist.ventas||0) - (dHist.ventasManana||0))}</span></div>
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="sun" class="text-brand-magenta w-4 h-4"></i> 
+                                            <span class="text-brand-magenta">Fact. Mañana</span> 
+                                            <span class="text-base text-brand-black dark:text-white ml-1">${formatCurrency(dHist.ventasManana)}</span>
+                                            <span class="text-[10px] text-brand-gray bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded ml-2">${formatNumber(tksMananaH)} tkts</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 mt-2 md:mt-0">
+                                            <i data-lucide="moon" class="text-amber-500 w-4 h-4"></i> 
+                                            <span class="text-brand-gray dark:text-slate-400">Fact. Tarde</span> 
+                                            <span class="text-base text-brand-black dark:text-white ml-1">${formatCurrency((dHist.ventas||0) - (dHist.ventasManana||0))}</span>
+                                            <span class="text-[10px] text-brand-gray bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded ml-2">${formatNumber(tksTardeH)} tkts</span>
+                                        </div>
                                     </div>
                                 </div>
                             `;
