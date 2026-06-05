@@ -26,16 +26,9 @@
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            magenta: '#EC008C', 
-                            black: '#1D1D1B',   
-                            gray: '#878787',    
-                            light: '#fdf2f8'    
-                        }
+                        brand: { magenta: '#EC008C', black: '#1D1D1B', gray: '#878787', light: '#fdf2f8' }
                     },
-                    fontFamily: {
-                        sans: ['Nunito', 'sans-serif'],
-                    }
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] }
                 }
             }
         }
@@ -168,7 +161,7 @@
         const diasPorMes = { 'Enero': 31, 'Febrero': 28, 'Marzo': 31, 'Abril': 30, 'Mayo': 31, 'Junio': 30, 'Julio': 31, 'Agosto': 31, 'Septiembre': 30, 'Octubre': 31, 'Noviembre': 30, 'Diciembre': 31 };
         const horasDinamicas = [8, 9, 10, 11, 12, 17, 18, 19, 20, 21];
 
-        const brandPalette = ['#EC008C', '#1D1D1B', '#878787', '#f472b6', '#334155', '#6366f1', '#14b8a6', '#f59e0b', '#10b981', '#06b6d4', '#8b5cf6', '#f43f5e'];
+        const brandPalette = ['#EC008C', '#10b981', '#06b6d4', '#f59e0b', '#8b5cf6', '#6366f1', '#f43f5e', '#14b8a6', '#f472b6', '#334155', '#1D1D1B', '#878787'];
 
         const eventosComerciales = {
             'Enero': 'Febrero (San Valentín y Feriado de Carnaval)',
@@ -346,7 +339,16 @@
             window.switchTab('historial');
         };
 
-        window.deleteRecord = async (dbId) => { if(confirm('¿Estás seguro de eliminar este registro histórico?')) await deleteDoc(doc(db, 'registros_mensuales', dbId)); };
+        window.deleteRecord = async (dbId) => {
+            let confirmacion1 = confirm("¿Estás a punto de borrar este registro. Esta acción es irreversible.\n\n¿Estás completamente seguro?");
+            if (confirmacion1) {
+                let confirmacion2 = confirm("Por seguridad, presiona 'Aceptar' una vez más para borrar definitivamente.");
+                if (confirmacion2) {
+                    await deleteDoc(doc(db, 'registros_mensuales', dbId));
+                    window.showNotification("Registro eliminado", "success");
+                }
+            }
+        };
 
         function getDatosComerciales(datosGlobal, local, anio) {
             if (local !== 'todos') return datosGlobal.filter(d => d.puntoVenta === local && d.isVentasLoaded);
@@ -429,6 +431,35 @@
             let uptAnual = sumTickets > 0 ? (sumUnidades / sumTickets).toFixed(2) : 0;
             
             let txtAnual = `En el acumulado del año ${dashboardAnio} (${sumDiasTrabajados} días laborables computados), ${prefijo} ${nombreLocal} registra una facturación global de ${formatCurrency(sumVentas)}. \n\nEl volumen total de tráfico alcanzó los ${formatNumber(sumTickets)} tickets, manteniendo un Ticket Promedio anual de ${formatCurrency(sumVentas/(sumTickets||1))} y una eficiencia operativa consolidada de ${uptAnual} unidades por cliente.`;
+
+            // Agregar desglose por locales individuales si estamos viendo el "Todos los Locales"
+            if (dashboardLocal === 'todos') {
+                let miniResumenLocales = '';
+                ['concordia', 'chajari', 'tendens'].forEach(loc => {
+                    const dL = appData.find(d => d.año === dashboardAnio && d.mes === dataMes.mes && d.puntoVenta === loc && d.isVentasLoaded);
+                    if (dL) {
+                        let uptL = dL.tickets > 0 ? (dL.productosVendidos / dL.tickets).toFixed(2) : 0;
+                        miniResumenLocales += `\n• ${PUNTOS_VENTA[loc]}: ${formatCurrency(dL.ventas)} | ${formatNumber(dL.tickets)} tkts | UPT: ${uptL}`;
+                    }
+                });
+                if (miniResumenLocales) {
+                    txtMensual += `\n\n📊 DESGLOSE POR SUCURSAL (${dataMes.mes}):${miniResumenLocales}`;
+                }
+
+                let miniResumenAnual = '';
+                ['concordia', 'chajari', 'tendens'].forEach(loc => {
+                    let dLAnual = appData.filter(d => d.año === dashboardAnio && d.puntoVenta === loc && d.isVentasLoaded);
+                    if (dLAnual.length > 0) {
+                        let sumV = 0, sumT = 0, sumU = 0;
+                        dLAnual.forEach(x => { sumV += (x.ventas||0); sumT += (x.tickets||0); sumU += (x.productosVendidos||0); });
+                        let uptL = sumT > 0 ? (sumU / sumT).toFixed(2) : 0;
+                        miniResumenAnual += `\n• ${PUNTOS_VENTA[loc]}: ${formatCurrency(sumV)} | ${formatNumber(sumT)} tkts | UPT: ${uptL}`;
+                    }
+                });
+                if (miniResumenAnual) {
+                    txtAnual += `\n\n📊 DESGLOSE ANUAL POR SUCURSAL:${miniResumenAnual}`;
+                }
+            }
 
             return { mensual: txtMensual, anual: txtAnual };
         }
@@ -541,12 +572,16 @@
                                         callbacks: { 
                                             label: c => { 
                                                 const pct = totalVal > 0 ? ((c.parsed / totalVal) * 100).toFixed(1) : 0; 
-                                                return `Capital: ${formatCurrency(c.parsed)} (${pct}%)`; 
+                                                return `Capital: $ ${formatNumber(c.parsed)} (${pct}%)`; 
                                             } 
                                         } 
                                     } 
                                 } 
                             });
+                        } else {
+                            const ctx = document.getElementById(`chartRing_${k}`);
+                            const p = ctx.parentElement;
+                            if(p) p.innerHTML += `<div class="empty-chart-overlay">Sin Datos</div>`;
                         }
                     }
                 });
@@ -742,7 +777,7 @@
                             if(capM > maxCap) { maxCap = capM; mesPico = m; }
                         });
 
-                        txtAnualPatrimonial = `Evaluación Patrimonial Anual - Año Fiscal ${dashboardAnio}\n\nEvolución del Capital: Durante el transcurso de ${dashboardAnio}, el capital valorizado global inició en el mes de ${priMes} con ${formatCurrency(capIn)} y alcanzó ${formatCurrency(capFin)} hacia ${ultMes}, representando una variación neta del ${dAn>0?'+':''}${dAn.toFixed(1)}% en pesos corrientes.\n\nEl pico de inmovilización de capital del año se registró en el mes de ${mesPico} con un total de ${formatCurrency(maxCap)}.`;
+                        txtAnualPatrimonial = `📌 DIAGNÓSTICO ANUAL - AÑO FISCAL ${dashboardAnio}\n\nEvolución del Capital: Durante el transcurso de ${dashboardAnio}, el capital valorizado global inició en el mes de ${priMes} con ${formatCurrency(capIn)} y alcanzó ${formatCurrency(capFin)} hacia ${ultMes}, representando una variación neta del ${dAn>0?'+':''}${dAn.toFixed(1)}% en pesos corrientes.\n\nEl pico de inmovilización de capital del año se registró en el mes de ${mesPico} con un total de ${formatCurrency(maxCap)}.`;
                     }
                     
                     lastDiagCapitalMensual = diagCapitalText;
@@ -1001,22 +1036,10 @@
                 }
 
                 if (showCapital && showComercial) {
-                    const dMesVentas = datosAnioGlobal.find(d=>d.mes===dashboardMes && d.puntoVenta===dashboardLocal && d.isVentasLoaded);
-                    const datosLocalAnio = datosAnioGlobal.filter(d => d.puntoVenta === dashboardLocal && d.isVentasLoaded);
+                    const datosLocalAnio = getDatosComerciales(datosAnioGlobal, dashboardLocal, dashboardAnio);
+                    const dMesVentas = datosLocalAnio.find(d=>d.mes===dashboardMes) || datosLocalAnio[datosLocalAnio.length-1];
                     let textComercial = dMesVentas ? generarTextoDiagnosticoComercial(dMesVentas, datosLocalAnio).mensual : 'Sin datos comerciales para este mes en el local seleccionado.';
                     
-                    let miniResumenLocales = '';
-                    if (dashboardLocal === 'todos') {
-                        ['concordia', 'chajari', 'tendens'].forEach(loc => {
-                            const dL = datosAnioGlobal.find(d => d.mes === dashboardMes && d.puntoVenta === loc && d.isVentasLoaded);
-                            if (dL) {
-                                let uptL = dL.tickets > 0 ? (dL.productosVendidos / dL.tickets).toFixed(2) : 0;
-                                miniResumenLocales += `<li class="ml-4 list-disc text-xs text-gray-400 mt-1"><b>${PUNTOS_VENTA[loc]}:</b> ${formatCurrency(dL.ventas)} | ${dL.tickets} tkts | UPT: ${uptL}</li>`;
-                            }
-                        });
-                        if (miniResumenLocales) textComercial += `\n\n<b class="text-brand-magenta">Resumen Sucursales (${dashboardMes}):</b>\n<ul class="mt-2">${miniResumenLocales}</ul>`;
-                    }
-
                     let totalCapGlobal = 0; let cotiz = 1;
                     dMesGlobal.forEach(d => { if(d.isStockLoaded || d.valorMercaderia > 0) { totalCapGlobal += (d.valorMercaderia || 0); if(d.cotizacionDolar>1) cotiz=d.cotizacionDolar; } });
                     
@@ -1027,7 +1050,7 @@
                         let capIn = datosAnioGlobal.filter(d=>d.mes===priMes).reduce((a,c)=>a+(c.valorMercaderia||0),0);
                         let capFin = datosAnioGlobal.filter(d=>d.mes===ultMes).reduce((a,c)=>a+(c.valorMercaderia||0),0);
                         let dAn = capIn > 0 ? ((capFin-capIn)/capIn)*100 : 0;
-                        txtAnualPatrimonial = `Evaluación Patrimonial Anual - Año Fiscal ${dashboardAnio}\n\nEvolución del Capital: Durante el transcurso de ${dashboardAnio}, el capital valorizado global inició en ${priMes} con ${formatCurrency(capIn)} y alcanzó ${formatCurrency(capFin)} hacia ${ultMes}, representando una variación neta del ${dAn>0?'+':''}${dAn.toFixed(1)}% en pesos corrientes.`;
+                        txtAnualPatrimonial = `📌 DIAGNÓSTICO ANUAL - AÑO FISCAL ${dashboardAnio}\n\nEvolución del Capital: Durante el transcurso de ${dashboardAnio}, el capital valorizado global inició en ${priMes} con ${formatCurrency(capIn)} y alcanzó ${formatCurrency(capFin)} hacia ${ultMes}, representando una variación neta del ${dAn>0?'+':''}${dAn.toFixed(1)}% en pesos corrientes.`;
                     }
 
                     html += `
@@ -1038,14 +1061,13 @@
                             </div>
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm text-gray-300 dark:text-slate-400 leading-relaxed">
                                 <div class="space-y-3">
-                                    <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Diagnóstico Comercial (${PUNTOS_VENTA[dashboardLocal] || 'Consolidado'})</p>
+                                    <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Diagnóstico Comercial (${PUNTOS_VENTA[dashboardLocal] || 'Todos los Locales'})</p>
                                     <div class="whitespace-pre-wrap">${textComercial}</div>
                                 </div>
                                 <div class="space-y-3">
                                     <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Diagnóstico Patrimonial Global</p>
                                     <div class="whitespace-pre-wrap mb-4">A la fecha de cierre, el capital inmovilizado global de la empresa asciende a ${formatCurrency(totalCapGlobal)} (equivalente a ${formatUSD(totalCapGlobal / cotiz)}). Este informe incluye valorizaciones detalladas en el apartado de capital superior.</div>
-                                    <p class="text-brand-magenta uppercase font-bold tracking-widest text-[10px] border-t border-gray-700 pt-3 mt-3"><i data-lucide="bar-chart" class="inline w-3 h-3 mr-1"></i> Diagnóstico Anual</p>
-                                    <div class="whitespace-pre-wrap text-xs text-gray-400">${txtAnualPatrimonial}</div>
+                                    <div class="whitespace-pre-wrap text-xs text-gray-400 border-t border-gray-700 pt-3 mt-3">${txtAnualPatrimonial}</div>
                                 </div>
                             </div>
                         </div>
