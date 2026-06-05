@@ -84,7 +84,7 @@
 
     <header class="bg-white dark:bg-slate-900 shadow-sm print-hidden border-b border-gray-100 dark:border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-24 flex items-center justify-between relative">
-            <img src="logo.png" alt="Logo de la Empresa" class="h-16 object-contain bg-white/10 rounded-xl p-1" />
+            <img src="logo.png" alt="Logo de la Empresa" class="h-16 object-contain bg-white/10 rounded-xl p-1" onerror="this.src='https://placehold.co/150x50/1D1D1B/FFF?text=LOGO'" />
             <div class="flex items-center gap-3">
                 <button onclick="toggleAdmin()" id="btn-admin" class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-4 py-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm font-bold text-sm">
                     <i data-lucide="lock" class="w-4 h-4"></i> <span class="hidden sm:inline">Modo Lectura</span>
@@ -148,13 +148,12 @@
         let currentUser = null;
         let appData = [];
         let activeTab = 'dashboard';
-        let dashboardSubTab = 'capital'; // Por defecto
+        let dashboardSubTab = 'capital'; 
         
         let isAdmin = false; 
         const ADMIN_PIN = "292708"; 
         let chartInstances = {}; 
 
-        // Filtros Dashboard Globales
         let dashboardLocal = 'concordia';
         let dashboardAnio = new Date().getFullYear().toString();
         let dashboardMes = null;
@@ -184,6 +183,19 @@
 
         function esBisiesto(year) { return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0); }
 
+        window.showToast = (msg, isError = false) => {
+            const t = document.createElement('div');
+            t.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-xl font-bold shadow-2xl text-white ${isError ? 'bg-red-500' : 'bg-brand-magenta'} transition-opacity duration-300 pointer-events-none`;
+            t.style.opacity = '0';
+            t.innerText = msg;
+            document.body.appendChild(t);
+            requestAnimationFrame(() => t.style.opacity = '1');
+            setTimeout(() => { 
+                t.style.opacity = '0'; 
+                setTimeout(()=>t.remove(), 300); 
+            }, 3000);
+        };
+
         window.toggleTheme = () => {
             const html = document.documentElement;
             html.classList.toggle('dark');
@@ -194,9 +206,9 @@
         window.toggleAdmin = () => {
             if (isAdmin) { isAdmin = false; if (activeTab === 'cargaVentas' || activeTab === 'cargaStock') activeTab = 'dashboard'; render(); }
             else {
-                const pin = prompt("🔐 MODO SEGURO ACTIVO\n\nIngresa el PIN para habilitar la edición:");
+                const pin = window.prompt("🔐 MODO SEGURO ACTIVO\n\nIngresa el PIN para habilitar la edición:");
                 if (pin === ADMIN_PIN) { isAdmin = true; render(); }
-                else if (pin !== null) alert("❌ PIN incorrecto.");
+                else if (pin !== null) showToast("PIN incorrecto.", true);
             }
         };
 
@@ -268,7 +280,6 @@
             else { tr.classList.remove('bg-gray-100', 'dark:bg-slate-800'); }
         };
 
-        // --- SISTEMA DE GUARDADO ---
         window.submitVentasForm = async (e) => {
             e.preventDefault();
             if (!currentUser) return;
@@ -298,7 +309,7 @@
                 if(tipo === 'normal' || ventaDia > 0) diasOperativos++;
             }
 
-            if (ventas === 0 && tickets === 0) { alert('Debes cargar información en la grilla.'); return; }
+            if (ventas === 0 && tickets === 0) { showToast('Debes cargar información en la grilla.', true); return; }
 
             const docId = `${formVentas.mes}-${formVentas.año}-${formVentas.puntoVenta}`;
             let dataToSave = { 
@@ -314,6 +325,7 @@
             dashboardAnio = formVentas.año;
             dashboardMes = formVentas.mes;
             formVentas.unidades = '';
+            showToast('Mes de ventas guardado correctamente');
             window.switchTab('dashboard');
         };
 
@@ -329,12 +341,29 @@
             };
             await setDoc(doc(db, 'registros_mensuales', docId), dataToSave, { merge: true });
             formStock.stock = [{ categoria: '', cantidad: '', valor: '' }];
+            showToast('Inventario patrimonial guardado correctamente');
             window.switchTab('historial');
         };
 
-        window.deleteRecord = async (dbId) => { if(confirm('¿Eliminar registro histórico?')) await deleteDoc(doc(db, 'registros_mensuales', dbId)); };
+        window.deleteRecord = async (dbId, btnElement) => { 
+            if(!btnElement.dataset.confirm) {
+                btnElement.dataset.confirm = "true";
+                btnElement.classList.replace('text-brand-gray', 'text-red-500');
+                btnElement.classList.add('bg-red-50');
+                btnElement.innerHTML = '<span class="text-xs font-bold px-1">¿Seguro?</span>';
+                setTimeout(() => {
+                    delete btnElement.dataset.confirm;
+                    btnElement.classList.replace('text-red-500', 'text-brand-gray');
+                    btnElement.classList.remove('bg-red-50');
+                    btnElement.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i>';
+                    lucide.createIcons();
+                }, 3000);
+                return;
+            }
+            await deleteDoc(doc(db, 'registros_mensuales', dbId)); 
+            showToast('Registro eliminado con éxito');
+        };
 
-        // --- DIAGNÓSTICOS DE TEXTO ---
         function generarTextoDiagnosticoComercial(dataMes, dataAnio) {
             if (!dataMes || !dataMes.isVentasLoaded) return { mensual: "Faltan datos de ventas para el diagnóstico mensual.", anual: "Faltan datos de ventas." };
             
@@ -378,7 +407,64 @@
             return { mensual: txtMensual, anual: txtAnual };
         }
 
-        // --- SISTEMA DE RENDERIZADO PRINCIPAL ---
+        function generarTextoDiagnosticoCapital(datosAnioGlobal, mesActual, anio) {
+            const dMesGlobal = datosAnioGlobal.filter(d=>d.mes===mesActual);
+            let totalCapGlobal = 0; let totalInvFisico = 0; let cotiz = 1;
+            const capPorCat = {}; const capPorLocal = {};
+            
+            dMesGlobal.forEach(d => {
+                if(d.isStockLoaded || d.valorMercaderia > 0) {
+                    totalCapGlobal += (d.valorMercaderia || 0);
+                    if (d.cotizacionDolar > 1) cotiz = d.cotizacionDolar;
+                    capPorLocal[d.puntoVenta] = (capPorLocal[d.puntoVenta]||0) + (d.valorMercaderia||0);
+                    if (d.stock) d.stock.forEach(i => { 
+                        totalInvFisico += (i.cantidad || 0);
+                        if(!capPorCat[i.categoria]) capPorCat[i.categoria] = {v:0, c:0}; 
+                        capPorCat[i.categoria].v += i.valor; capPorCat[i.categoria].c += i.cantidad; 
+                    });
+                }
+            });
+            let valorUnitario = totalInvFisico > 0 ? totalCapGlobal / totalInvFisico : 0;
+            const prevMesIndex = mesesList.indexOf(mesActual) - 1;
+            const prevMes = prevMesIndex >= 0 ? mesesList[prevMesIndex] : null;
+            let tM_prev = 0;
+            if (prevMes) {
+                const dPrevGlobal = datosAnioGlobal.filter(d=>d.mes===prevMes);
+                dPrevGlobal.forEach(d => { tM_prev += (d.valorMercaderia || 0); });
+            }
+            let difCap = tM_prev > 0 ? ((totalCapGlobal - tM_prev) / tM_prev) * 100 : 0;
+            let topRubro = Object.keys(capPorCat).map(k => ({cat: k, val: capPorCat[k].v})).sort((a,b)=>b.val-a.val)[0];
+            let topLocal = Object.keys(capPorLocal).map(k => ({loc: k, val: capPorLocal[k]})).sort((a,b)=>b.val-a.val)[0];
+
+            let txtMensual = `A la fecha de cierre de ${mesActual} ${anio}, el inventario físico consolidado de la empresa (Depósito + Locales) cuenta con ${formatNumber(totalInvFisico)} unidades. El capital total inmovilizado se valoriza en ${formatCurrency(totalCapGlobal)} (equivalente a ${formatUSD(totalCapGlobal / cotiz)} al tipo de cambio reportado). El valor unitario promedio general es de ${formatCurrency(valorUnitario)}.\n\n`;
+            if (prevMes) txtMensual += `En comparación con el mes anterior (${prevMes}), el capital global experimentó una variación del ${difCap > 0 ? '+' : ''}${difCap.toFixed(1)}%. `;
+            if (topLocal) txtMensual += `El punto con mayor acumulación de valor es ${PUNTOS_VENTA[topLocal.loc]} (${formatCurrency(topLocal.val)}). `;
+            if (topRubro) txtMensual += `A nivel de composición de stock, el rubro "${topRubro.cat}" concentra la mayor inversión.`;
+
+            const mesesCargados = [...new Set(datosAnioGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).map(d=>d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]);
+            let txtAnual = "Datos insuficientes para el análisis anual.";
+            if (mesesCargados.length > 0) {
+                let primerMes = mesesCargados[0];
+                let ultimoMes = mesesCargados[mesesCargados.length-1];
+                let capInicial = datosAnioGlobal.filter(d=>d.mes===primerMes).reduce((acc,d)=>acc+(d.valorMercaderia||0), 0);
+                let capFinal = datosAnioGlobal.filter(d=>d.mes===ultimoMes).reduce((acc,d)=>acc+(d.valorMercaderia||0), 0);
+                let difAnual = capInicial > 0 ? ((capFinal - capInicial) / capInicial) * 100 : 0;
+                
+                let maxCap = 0; let mesPico = '';
+                mesesCargados.forEach(m => {
+                    let capM = datosAnioGlobal.filter(d=>d.mes===m).reduce((acc,d)=>acc+(d.valorMercaderia||0), 0);
+                    if(capM > maxCap) { maxCap = capM; mesPico = m; }
+                });
+
+                txtAnual = `Evaluación Patrimonial Anual - Año Fiscal ${anio}\n\n`;
+                txtAnual += `Evolución del Capital: Durante el transcurso de ${anio}, el capital valorizado global inició en ${primerMes} con ${formatCurrency(capInicial)} y alcanzó ${formatCurrency(capFinal)} hacia ${ultimoMes}, representando una variación neta del ${difAnual>0?'+':''}${difAnual.toFixed(1)}% en pesos corrientes.\n\n`;
+                txtAnual += `El pico de inmovilización de capital del año se registró en el mes de ${mesPico} con un total de ${formatCurrency(maxCap)}. \n\n`;
+                txtAnual += `Dinámica de Sucursales: Las políticas de abastecimiento han mantenido a ${topLocal ? PUNTOS_VENTA[topLocal.loc] : 'S/D'} como el punto neurálgico de retención de valor. Se recomienda realizar auditorías rotativas en los puntos de mayor concentración para mitigar el riesgo de obsolescencia en el rubro líder de inversión (${topRubro ? topRubro.cat : 'S/D'}). La tendencia de variación exige un monitoreo activo del índice de rotación para liberar liquidez atrapada en los valles comerciales del año.`;
+            }
+
+            return { mensual: txtMensual, anual: txtAnual };
+        }
+
         function render() {
             const main = document.getElementById('main-content');
             const nav = ['dashboard', 'cargaVentas', 'cargaStock', 'historial'];
@@ -405,15 +491,12 @@
                 let aniosDisponibles = [...new Set(appData.map(d=>d.año))].sort((a,b)=>b-a);
                 if(aniosDisponibles.length===0) aniosDisponibles=[new Date().getFullYear().toString()];
 
-                // UI Top Selectores Globales
+                // UI Top Selectores Globales SIN barra ancha (Petición 1)
                 let html = `
-                    <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 mb-6 flex flex-col md:flex-row items-center justify-between border-l-4 border-brand-magenta gap-4 animate-in fade-in">
-                        <h1 class="text-xl font-extrabold text-brand-black dark:text-white flex items-center gap-2"><i data-lucide="bar-chart-2" class="text-brand-magenta w-5 h-5"></i> Dashboard Analítico</h1>
-                        <div class="flex items-center gap-3">
-                            <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 text-sm font-bold outline-none focus:border-brand-magenta cursor-pointer">
-                                ${aniosDisponibles.map(a => `<option value="${a}" ${dashboardAnio===a?'selected':''}>${a}</option>`).join('')}
-                            </select>
-                        </div>
+                    <div class="flex justify-end mb-2 print-hidden animate-in fade-in">
+                        <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-3 py-1.5 text-sm font-bold shadow-sm outline-none hover:border-brand-magenta cursor-pointer transition-colors">
+                            ${aniosDisponibles.map(a => `<option value="${a}" ${dashboardAnio===a?'selected':''}>${a}</option>`).join('')}
+                        </select>
                     </div>
                 `;
 
@@ -439,22 +522,16 @@
                     </div>
                 `;
 
-                // ------------------ ANÁLISIS DE CAPITAL (Global) ------------------
                 if (showCapital) {
                     let totalCapGlobal = 0; let totalInvFisico = 0; let cotiz = 1;
-                    const capPorCat = {}; const capPorLocal = {};
                     
                     dMesGlobal.forEach(d => {
                         if(d.isStockLoaded || d.valorMercaderia > 0) {
                             totalCapGlobal += (d.valorMercaderia || 0);
                             if (d.cotizacionDolar > 1) cotiz = d.cotizacionDolar;
                             
-                            capPorLocal[d.puntoVenta] = (capPorLocal[d.puntoVenta]||0) + (d.valorMercaderia||0);
-                            
                             if (d.stock) d.stock.forEach(i => { 
                                 totalInvFisico += (i.cantidad || 0);
-                                if(!capPorCat[i.categoria]) capPorCat[i.categoria] = {v:0, c:0}; 
-                                capPorCat[i.categoria].v += i.valor; capPorCat[i.categoria].c += i.cantidad; 
                             });
                         }
                     });
@@ -471,13 +548,7 @@
                     }
                     let difCap = tM_prev > 0 ? ((totalCapGlobal - tM_prev) / tM_prev) * 100 : 0;
                     
-                    let topRubro = Object.keys(capPorCat).map(k => ({cat: k, val: capPorCat[k].v})).sort((a,b)=>b.val-a.val)[0];
-                    let topLocal = Object.keys(capPorLocal).map(k => ({loc: k, val: capPorLocal[k]})).sort((a,b)=>b.val-a.val)[0];
-
-                    let diagCapitalText = `A la fecha de cierre de ${dashboardMes} ${dashboardAnio}, el inventario físico consolidado de la empresa (Depósito + Locales) cuenta con ${formatNumber(totalInvFisico)} unidades. El capital total inmovilizado se valoriza en ${formatCurrency(totalCapGlobal)} (equivalente a ${formatUSD(totalCapGlobal / cotiz)} al tipo de cambio reportado). El valor unitario promedio general es de ${formatCurrency(valorUnitario)}.\n\n`;
-                    if (prevMes) diagCapitalText += `En comparación con el mes anterior (${prevMes}), el capital global experimentó una variación del ${difCap > 0 ? '+' : ''}${difCap.toFixed(1)}%. `;
-                    if (topLocal) diagCapitalText += `El punto con mayor acumulación de valor es ${PUNTOS_VENTA[topLocal.loc]} (${formatCurrency(topLocal.val)}). `;
-                    if (topRubro) diagCapitalText += `A nivel de composición de stock, el rubro "${topRubro.cat}" concentra la mayor inversión.`;
+                    const diagCapData = generarTextoDiagnosticoCapital(datosAnioGlobal, dashboardMes, dashboardAnio);
 
                     html += `
                     <div class="space-y-6 animate-in slide-in-from-bottom-2">
@@ -495,28 +566,42 @@
                             <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-gray"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase">Valor Unitario Promedio</p><h3 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(valorUnitario)}</h3></div>
                         </div>
 
+                        <!-- Petición 2: Comparativa de Puntos de Venta (Evolución) -->
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Global del Capital (YTD)</h4><div class="chart-container"><canvas id="chartYoyCapital"></canvas></div></div>
-                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución del Capital por Sucursal</h4><div class="chart-container"><canvas id="chartCapitalMix"></canvas></div></div>
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Comparativa por Punto</h4><div class="chart-container"><canvas id="chartCapitalLocales"></canvas></div></div>
                         </div>
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Capital por Categoría Global</h4><div class="chart-container"><canvas id="chartCapitalCat"></canvas></div></div>
-                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Valor Unitario por Categoría Global</h4><div class="chart-container"><canvas id="chartRubroAvg"></canvas></div></div>
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución del Capital Actual</h4><div class="chart-container"><canvas id="chartCapitalMix"></canvas></div></div>
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Top Categorías Globales</h4><div class="chart-container"><canvas id="chartCapitalCat"></canvas></div></div>
                         </div>
 
+                        <!-- Petición 2: Gráficos Individuales por Punto -->
+                        <h3 class="text-lg font-bold text-brand-black dark:text-white mt-8 mb-4 border-b border-gray-200 dark:border-slate-800 pb-2 flex items-center"><i data-lucide="layout-grid" class="w-5 h-5 mr-2 text-brand-magenta"></i> Composición Individual por Punto de Venta / Depósito (${dashboardMes})</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            ${Object.keys(PUNTOS_VENTA).map(pv => `
+                                <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col">
+                                    <h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest text-center border-b border-gray-100 dark:border-slate-800 pb-2">${PUNTOS_VENTA[pv]}</h4>
+                                    <div class="chart-container flex-grow relative" style="height: 180px;"><canvas id="chartInd_${pv}"></canvas></div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <!-- Petición 3: Botón de Alternancia de Diagnóstico Anual -->
                         ${!showComercial ? `
-                        <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-6 border border-brand-black dark:border-slate-800">
-                            <div class="flex items-center gap-3 mb-4"><div class="p-2 bg-brand-magenta/20 rounded-lg"><i data-lucide="archive" class="text-brand-magenta"></i></div><h3 class="text-lg font-bold">Diagnóstico Patrimonial Global (${dashboardMes})</h3></div>
-                            <p class="text-sm text-gray-300 dark:text-slate-400 leading-relaxed">${diagCapitalText}</p>
+                        <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800">
+                            <div class="flex items-center justify-between mb-4 border-b border-gray-700 dark:border-slate-800 pb-3">
+                                <div class="flex items-center gap-3"><div class="p-2 bg-brand-magenta/20 rounded-lg"><i data-lucide="archive" class="text-brand-magenta"></i></div><h3 class="text-lg font-bold">Diagnóstico Patrimonial Global <span id="diag-cap-subtitle" class="text-sm font-normal text-brand-gray ml-2">(${dashboardMes})</span></h3></div>
+                                <button onclick="toggleDiagCapital()" id="btnToggleDiagCap" class="text-xs font-bold text-brand-magenta bg-brand-black dark:bg-slate-800 border border-brand-magenta/50 px-3 py-1.5 rounded-lg hover:bg-brand-magenta hover:text-white transition">Ver Diagnóstico Anual</button>
+                            </div>
+                            <p id="texto-diagnostico-cap" class="text-sm text-gray-300 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">${diagCapData.mensual}</p>
                         </div>
                         ` : ''}
                     </div>
                     `;
                 }
 
-                // ------------------ ANÁLISIS COMERCIAL (Individual por Local) ------------------
                 if (showComercial) {
-                    // Aquí volvemos al selector individual
                     html += `<div class="flex items-center justify-between bg-brand-light dark:bg-slate-800 p-4 rounded-xl border border-brand-magenta/20 dark:border-slate-700 mt-8 mb-6">
                             <div class="flex items-center gap-3">
                                 <h2 class="text-xl font-bold text-brand-magenta flex items-center"><i data-lucide="trending-up" class="mr-2"></i> Análisis Comercial Local</h2>
@@ -649,6 +734,19 @@
                     const datosLocalAnio = datosAnioGlobal.filter(d => d.puntoVenta === dashboardLocal && d.isVentasLoaded);
                     let textComercial = dMesVentas ? generarTextoDiagnosticoComercial(dMesVentas, datosLocalAnio).mensual : 'Sin datos comerciales para este mes en el local seleccionado.';
                     
+                    let textConclusionLocales = '\n\n📈 RESUMEN DE SUCURSALES:\n';
+                    ['concordia', 'chajari', 'tendens'].forEach(loc => {
+                        const dLoc = datosAnioGlobal.find(d => d.mes === dashboardMes && d.puntoVenta === loc && d.isVentasLoaded);
+                        if(dLoc) {
+                            const upt = dLoc.tickets > 0 ? (dLoc.productosVendidos / dLoc.tickets).toFixed(2) : '0';
+                            textConclusionLocales += `• ${PUNTOS_VENTA[loc]}: ${formatCurrency(dLoc.ventas)} (${formatNumber(dLoc.tickets)} tickets | UPT: ${upt})\n`;
+                        } else {
+                            textConclusionLocales += `• ${PUNTOS_VENTA[loc]}: Sin datos registrados en este mes\n`;
+                        }
+                    });
+                    textComercial += textConclusionLocales;
+                    
+                    const diagCapData = generarTextoDiagnosticoCapital(datosAnioGlobal, dashboardMes, dashboardAnio);
                     let totalCapGlobal = 0; let cotiz = 1;
                     dMesGlobal.forEach(d => { if(d.isStockLoaded || d.valorMercaderia > 0) { totalCapGlobal += (d.valorMercaderia || 0); if(d.cotizacionDolar>1) cotiz=d.cotizacionDolar; } });
                     
@@ -665,7 +763,7 @@
                                 </div>
                                 <div class="space-y-3">
                                     <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Diagnóstico Patrimonial Global</p>
-                                    <p class="whitespace-pre-wrap">A la fecha de cierre, el capital inmovilizado global de la empresa asciende a ${formatCurrency(totalCapGlobal)} (equivalente a ${formatUSD(totalCapGlobal / cotiz)}). Este informe incluye valorizaciones detalladas en el apartado de capital.</p>
+                                    <p class="whitespace-pre-wrap">${diagCapData.mensual}\n\n📌 DIAGNÓSTICO ANUAL:\n${diagCapData.anual}</p>
                                 </div>
                             </div>
                         </div>
@@ -760,6 +858,7 @@
                         </form>
                     </div>`;
                 lucide.createIcons();
+
             } else if (activeTab === 'cargaStock') {
                 document.getElementById('export-btn-container').style.display = 'none';
 
@@ -843,7 +942,7 @@
                                         <td class="p-5 text-brand-gray dark:text-gray-300 font-bold">${PUNTOS_VENTA[r.puntoVenta] || r.puntoVenta}</td>
                                         <td class="p-5 text-right font-black text-brand-magenta">${r.isVentasLoaded || typeof r.ventas === 'number' ? formatCurrency(r.ventas) : '-'}</td>
                                         <td class="p-5 text-right font-black text-brand-black dark:text-gray-300">${r.isStockLoaded || typeof r.valorMercaderia === 'number' ? formatCurrency(r.valorMercaderia) : '-'}</td>
-                                        ${isAdmin ? `<td class="p-5 text-center"><button onclick="deleteRecord('${r.dbId}')" class="p-2 text-brand-gray hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button></td>` : ''}
+                                        ${isAdmin ? `<td class="p-5 text-center"><button onclick="deleteRecord('${r.dbId}', this)" class="p-2 text-brand-gray hover:bg-red-50 hover:text-red-500 rounded-lg transition-all"><i data-lucide="trash-2" class="w-4 h-4 mx-auto"></i></button></td>` : ''}
                                     </tr>`).join('')}
                                 </tbody>
                             </table>
@@ -892,6 +991,25 @@
             }
         };
 
+        window.toggleDiagCapital = function() {
+            const el = document.getElementById('texto-diagnostico-cap');
+            const btn = document.getElementById('btnToggleDiagCap');
+            const sub = document.getElementById('diag-cap-subtitle');
+            
+            let datosAnioGlobal = appData.filter(d => d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
+            const diagData = generarTextoDiagnosticoCapital(datosAnioGlobal, dashboardMes, dashboardAnio);
+
+            if (btn.innerText.includes('Anual')) {
+                el.innerText = diagData.anual;
+                btn.innerText = 'Ver Diagnóstico Mensual';
+                sub.innerText = `(Acumulado ${dashboardAnio})`;
+            } else {
+                el.innerText = diagData.mensual;
+                btn.innerText = 'Ver Diagnóstico Anual';
+                sub.innerText = `(${dashboardMes})`;
+            }
+        };
+
         function initChartsDashboard(dataAnioGlobal, mesSeleccionado) {
             const isDark = document.documentElement.classList.contains('dark');
             const gridColor = isDark ? '#334155' : '#e2e8f0';
@@ -918,7 +1036,26 @@
                     cCfg('chartYoyCapital', 'line', { labels: mesesData, datasets: [{ label: 'Capital Global ($)', data: capYoy, borderColor: '#8b5cf6', backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.2)', fill: true, tension: 0.3, borderWidth: 3, pointBackgroundColor: '#8b5cf6' }] }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
                 }
                 
-                const dMesG = dataAnioGlobal.filter(d=>d.mes===mesesData[mesesData.length-1]);
+                // Gráfico Comparativo Lineal Solicitado
+                if (document.getElementById('chartCapitalLocales')) {
+                    const datasets = Object.keys(PUNTOS_VENTA).map((pv, idx) => {
+                        const dataP = mesesData.map(m => {
+                            const rec = dataAnioGlobal.find(d => d.mes === m && d.puntoVenta === pv);
+                            return rec ? (rec.valorMercaderia || 0) : 0;
+                        });
+                        return {
+                            label: PUNTOS_VENTA[pv],
+                            data: dataP,
+                            borderColor: brandPalette[idx % brandPalette.length],
+                            backgroundColor: brandPalette[idx % brandPalette.length],
+                            borderWidth: 2,
+                            tension: 0.3
+                        };
+                    });
+                    cCfg('chartCapitalLocales', 'line', { labels: mesesData, datasets: datasets }, { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { callback: formatMillones } } } });
+                }
+
+                const dMesG = dataAnioGlobal.filter(d=>d.mes===mesSeleccionado);
                 if (document.getElementById('chartCapitalMix')) {
                     const capPorLocal = {};
                     dMesG.forEach(d => capPorLocal[PUNTOS_VENTA[d.puntoVenta]] = (d.valorMercaderia||0));
@@ -932,9 +1069,27 @@
                 if (document.getElementById('chartCapitalCat')) {
                     cCfg('chartCapitalCat', 'bar', { labels: topCat.map(c=>c.cat), datasets: [{ label: 'Capital ($)', data: topCat.map(c=>c.val), backgroundColor: '#10b981', borderRadius: 4 }] }, { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: formatMillones } } } });
                 }
-                if (document.getElementById('chartRubroAvg')) {
-                    cCfg('chartRubroAvg', 'bar', { labels: topCat.map(c=>c.cat), datasets: [{ label: 'Costo Promedio ($)', data: topCat.map(c=>c.avg), backgroundColor: '#EC008C', borderRadius: 4 }] }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: formatCurrency } } } });
-                }
+
+                // Gráficos Individuales por Punto de Venta Solicitados
+                Object.keys(PUNTOS_VENTA).forEach((pv, idx) => {
+                    const canvasId = `chartInd_${pv}`;
+                    if (document.getElementById(canvasId)) {
+                        const rec = dMesG.find(d => d.puntoVenta === pv);
+                        if (rec && rec.stock && rec.stock.length > 0) {
+                            const cats = rec.stock.filter(s => s.categoria && s.valor > 0).sort((a,b)=>b.valor-a.valor);
+                            if(cats.length > 0) {
+                                cCfg(canvasId, 'doughnut', {
+                                    labels: cats.map(c=>c.categoria),
+                                    datasets: [{ data: cats.map(c=>c.valor), backgroundColor: brandPalette, borderWidth: 0, hoverOffset: 10 }]
+                                }, { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } });
+                            } else {
+                                document.getElementById(canvasId).parentElement.innerHTML += `<div class="empty-chart-overlay">Sin rubros valorizados</div>`;
+                            }
+                        } else {
+                            document.getElementById(canvasId).parentElement.innerHTML += `<div class="empty-chart-overlay">Sin stock</div>`;
+                        }
+                    }
+                });
             }
 
             // --- GRÁFICOS INDIVIDUALES COMERCIAL ---
