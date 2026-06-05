@@ -580,10 +580,20 @@
                                 plugins: { 
                                     legend: { display: false }, 
                                     tooltip: { 
+                                        padding: 12,
+                                        titleFont: { size: 14, family: "'Nunito', sans-serif" },
+                                        bodyFont: { size: 13, family: "'Nunito', sans-serif", weight: 'bold' },
+                                        displayColors: false,
                                         callbacks: { 
-                                            label: c => { 
+                                            title: (tooltipItems) => {
+                                                return tooltipItems[0].label;
+                                            },
+                                            label: (c) => { 
                                                 const pct = totalVal > 0 ? ((c.parsed / totalVal) * 100).toFixed(1) : 0; 
-                                                return `Capital: $ ${formatNumber(c.parsed)} (${pct}%)`; 
+                                                return [
+                                                    `${formatCurrency(c.parsed)}`,
+                                                    `Participación: ${pct}%`
+                                                ]; 
                                             } 
                                         } 
                                     } 
