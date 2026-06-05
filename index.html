@@ -38,10 +38,21 @@
     
     <style>
         @media print {
+            @page { margin: 1cm; }
             .print-hidden { display: none !important; }
-            body { background-color: white !important; color: black !important; }
-            .print-break-inside-avoid { break-inside: avoid; }
-            .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0; }
+            body { 
+                background-color: white !important; 
+                color: #1D1D1B !important; 
+                -webkit-print-color-adjust: exact !important; 
+                print-color-adjust: exact !important; 
+            }
+            .print-break-inside-avoid { 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+            }
+            .shadow-sm { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+            .chart-container { page-break-inside: avoid !important; break-inside: avoid !important; }
+            canvas { max-width: 100% !important; }
         }
         body, div, header, nav, button, p, h2, h3, h4, span, td, th { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
         
@@ -72,7 +83,7 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 font-sans text-brand-black dark:text-gray-100 pb-12 min-h-screen">
 
-    <button onclick="toggleTheme()" class="fixed bottom-6 right-6 z-50 p-3.5 bg-brand-black dark:bg-white text-white dark:text-brand-black rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center group border border-gray-700 dark:border-gray-200">
+    <button onclick="toggleTheme()" class="fixed bottom-6 right-6 z-50 p-3.5 bg-brand-black dark:bg-white text-white dark:text-brand-black rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center group border border-gray-700 dark:border-gray-200 print-hidden">
         <i id="theme-icon-light" data-lucide="sun" class="w-6 h-6 hidden dark:block group-hover:rotate-45 transition-transform duration-500"></i>
         <i id="theme-icon-dark" data-lucide="moon" class="w-6 h-6 block dark:hidden group-hover:-rotate-12 transition-transform duration-500"></i>
     </button>
@@ -116,7 +127,7 @@
     </div>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8" id="main-content"></main>
-    <div id="notification-container"></div>
+    <div id="notification-container" class="print-hidden"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -432,7 +443,6 @@
             
             let txtAnual = `En el acumulado del año ${dashboardAnio} (${sumDiasTrabajados} días laborables computados), ${prefijo} ${nombreLocal} registra una facturación global de ${formatCurrency(sumVentas)}. \n\nEl volumen total de tráfico alcanzó los ${formatNumber(sumTickets)} tickets, manteniendo un Ticket Promedio anual de ${formatCurrency(sumVentas/(sumTickets||1))} y una eficiencia operativa consolidada de ${uptAnual} unidades por cliente.`;
 
-            // Agregar desglose por locales individuales si estamos viendo el "Todos los Locales"
             if (dashboardLocal === 'todos') {
                 let miniResumenLocales = '';
                 ['concordia', 'chajari', 'tendens'].forEach(loc => {
@@ -581,7 +591,7 @@
                         } else {
                             const ctx = document.getElementById(`chartRing_${k}`);
                             const p = ctx.parentElement;
-                            if(p) p.innerHTML += `<div class="empty-chart-overlay">Sin Datos</div>`;
+                            if(p) p.innerHTML += `<div class="empty-chart-overlay print-hidden">Sin Datos</div>`;
                         }
                     }
                 });
@@ -699,7 +709,7 @@
                 if(aniosDisponibles.length===0) aniosDisponibles=[new Date().getFullYear().toString()];
 
                 let html = `
-                    <div class="flex justify-end mb-6 animate-in fade-in pr-2">
+                    <div class="flex justify-end mb-6 animate-in fade-in pr-2 print-hidden">
                         <select onchange="cambiarDashFiltro('anio', this.value)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-brand-black dark:text-white rounded-lg px-4 py-2 text-sm font-bold outline-none focus:border-brand-magenta cursor-pointer shadow-sm">
                             ${aniosDisponibles.map(a => `<option value="${a}" ${dashboardAnio===a?'selected':''}>Año Fiscal: ${a}</option>`).join('')}
                         </select>
@@ -709,7 +719,7 @@
                 const datosAnioGlobal = appData.filter(d => d.año === dashboardAnio).sort((a, b) => monthOrder[a.mes] - monthOrder[b.mes]);
 
                 if (datosAnioGlobal.length === 0) {
-                    html += `<div class="text-center py-20 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><i data-lucide="inbox" class="mx-auto w-16 h-16 text-brand-gray mb-4"></i><h3 class="text-xl font-bold dark:text-white">Sin datos registrados en ${dashboardAnio}</h3></div>`;
+                    html += `<div class="text-center py-20 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><i data-lucide="inbox" class="mx-auto w-16 h-16 text-brand-gray mb-4"></i><h3 class="text-xl font-bold dark:text-white">Sin datos registrados en ${dashboardAnio}</h3></div>`;
                     main.innerHTML = html; lucide.createIcons(); return;
                 }
 
@@ -785,14 +795,15 @@
 
                     html += `
                     <div class="space-y-6 animate-in slide-in-from-bottom-2">
-                        <div class="flex items-center justify-between bg-brand-light dark:bg-slate-800 p-4 rounded-xl border border-brand-magenta/20 dark:border-slate-700">
+                        <div class="flex items-center justify-between bg-brand-light dark:bg-slate-800 p-4 rounded-xl border border-brand-magenta/20 dark:border-slate-700 print-break-inside-avoid">
                             <h2 class="text-xl font-bold text-brand-magenta flex items-center"><i data-lucide="archive" class="mr-2"></i> Análisis de Capital (Valorizado)</h2>
-                            <select onchange="cambiarDashMes(this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer">
+                            <select onchange="cambiarDashMes(this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer print-hidden">
                                 ${[...new Set(datosAnioGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).map(d=>d.mes))].map(m => `<option value="${m}" ${dashboardMes===m?'selected':''}>${m} ${dashboardAnio}</option>`).join('')}
                             </select>
+                            <span class="hidden print:inline-block text-brand-magenta font-bold">Mes reportado: ${dashboardMes} ${dashboardAnio}</span>
                         </div>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 print-break-inside-avoid">
                             <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-magenta">
                                 <p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase">Capital Valorizado (${dashboardMes})</p>
                                 <h3 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(totalCapGlobal)}</h3>
@@ -809,25 +820,25 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-6">
+                        <div class="grid grid-cols-1 gap-6 print-break-inside-avoid">
                             <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 lg:col-span-2">
                                 <h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest flex items-center"><i data-lucide="trending-up" class="w-4 h-4 mr-2"></i> Evolución Global Comparativa (YTD)</h4>
                                 <div class="chart-container" style="height: 300px;"><canvas id="chartYoyCapital"></canvas></div>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid">
                                 <h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest flex items-center"><i data-lucide="bar-chart-3" class="w-4 h-4 mr-2"></i> Capital por Categoría Global</h4>
                                 <div class="chart-container" style="height: 350px;"><canvas id="chartCapitalCat"></canvas></div>
                             </div>
-                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800">
+                            <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid">
                                 <h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest flex items-center"><i data-lucide="tag" class="w-4 h-4 mr-2"></i> Valor Unitario por Categoría Global</h4>
                                 <div class="chart-container" style="height: 350px;"><canvas id="chartRubroAvg"></canvas></div>
                             </div>
                         </div>
 
-                        <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800">
+                        <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid">
                             <h4 class="text-xs font-bold text-brand-gray uppercase mb-6 tracking-widest flex items-center"><i data-lucide="pie-chart" class="w-4 h-4 mr-2 text-brand-magenta"></i> Distribución de Capital por Sucursal (${dashboardMes})</h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <div class="bg-slate-50 dark:bg-slate-950 rounded-xl p-4 border border-gray-200 dark:border-slate-800"><h5 class="text-[10px] text-center text-brand-gray font-black uppercase mb-2">Local Concordia</h5><div class="chart-container" style="height: 180px;"><canvas id="chartRing_concordia"></canvas></div></div>
@@ -839,12 +850,12 @@
 
                         ${!showComercial ? `
                         <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-6 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
-                            <div class="flex items-center justify-between mb-4 border-b border-gray-700 dark:border-slate-800 pb-3">
+                            <div class="flex items-center justify-between mb-4 border-b border-gray-700 dark:border-slate-800 pb-3 print-break-inside-avoid">
                                 <div class="flex items-center gap-3">
                                     <div class="p-2 bg-brand-magenta/20 rounded-lg"><i data-lucide="archive" class="text-brand-magenta"></i></div>
                                     <h3 class="text-lg font-bold">Diagnóstico Patrimonial Global <span id="diag-cap-subtitle" class="text-sm font-normal text-brand-gray ml-2">(${dashboardMes})</span></h3>
                                 </div>
-                                <button onclick="toggleDiagCapital()" id="btnToggleDiagCap" class="text-xs font-bold text-brand-magenta bg-brand-black dark:bg-slate-800 border border-brand-magenta/50 px-3 py-1.5 rounded-lg hover:bg-brand-magenta hover:text-white transition">Ver Resumen Anual</button>
+                                <button onclick="toggleDiagCapital()" id="btnToggleDiagCap" class="text-xs font-bold text-brand-magenta bg-brand-black dark:bg-slate-800 border border-brand-magenta/50 px-3 py-1.5 rounded-lg hover:bg-brand-magenta hover:text-white transition print-hidden">Ver Resumen Anual</button>
                             </div>
                             <p id="texto-diagnostico-cap" class="text-sm text-gray-300 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">${diagCapitalText}</p>
                         </div>
@@ -854,23 +865,25 @@
                 }
 
                 if (showComercial) {
-                    html += `<div class="flex items-center justify-between bg-brand-light dark:bg-slate-800 p-4 rounded-xl border border-brand-magenta/20 dark:border-slate-700 mt-8 mb-6">
+                    html += `<div class="flex items-center justify-between bg-brand-light dark:bg-slate-800 p-4 rounded-xl border border-brand-magenta/20 dark:border-slate-700 mt-8 mb-6 print-break-inside-avoid">
                             <div class="flex items-center gap-3">
                                 <h2 class="text-xl font-bold text-brand-magenta flex items-center"><i data-lucide="trending-up" class="mr-2"></i> Ticket Promedio P.Vs</h2>
-                                <select onchange="cambiarDashFiltro('local', this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer">
+                                <select onchange="cambiarDashFiltro('local', this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer print-hidden">
                                     <option value="todos" ${dashboardLocal==='todos'?'selected':''}>Todos los Locales</option>
                                     ${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${dashboardLocal===k?'selected':''}>${v}</option>`).join('')}
                                 </select>
+                                <span class="hidden print:inline-block text-brand-magenta font-bold">Local: ${dashboardLocal === 'todos' ? 'Todos los Locales' : PUNTOS_VENTA[dashboardLocal]}</span>
                             </div>
-                            <select onchange="cambiarDashMes(this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer">
+                            <select onchange="cambiarDashMes(this.value)" class="bg-white dark:bg-slate-900 border border-brand-magenta text-brand-magenta rounded-lg px-3 py-1 text-sm font-bold outline-none cursor-pointer print-hidden">
                                 ${[...new Set(datosAnioGlobal.filter(d=>d.isVentasLoaded).map(d=>d.mes))].map(m => `<option value="${m}" ${dashboardMes===m?'selected':''}>${m} ${dashboardAnio}</option>`).join('')}
                             </select>
+                            <span class="hidden print:inline-block text-brand-magenta font-bold">Mes reportado: ${dashboardMes} ${dashboardAnio}</span>
                         </div>`;
 
                     const datosLocalAnio = getDatosComerciales(datosAnioGlobal, dashboardLocal, dashboardAnio);
                     
                     if (datosLocalAnio.length === 0) {
-                        html += `<div class="text-center py-10 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><i data-lucide="inbox" class="mx-auto w-12 h-12 text-brand-gray mb-4"></i><h3 class="text-lg font-bold dark:text-white">Sin ventas registradas</h3></div>`;
+                        html += `<div class="text-center py-10 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><i data-lucide="inbox" class="mx-auto w-12 h-12 text-brand-gray mb-4"></i><h3 class="text-lg font-bold dark:text-white">Sin ventas registradas</h3></div>`;
                     } else {
                         const dMes = datosLocalAnio.find(d=>d.mes===dashboardMes) || datosLocalAnio[datosLocalAnio.length-1];
 
@@ -908,14 +921,14 @@
 
                         html += `
                         <div class="space-y-6 animate-in slide-in-from-bottom-2">
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 print-break-inside-avoid">
                                 <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-magenta"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase tracking-wider">Facturación Mensual (${dashboardMes})</p><h2 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(dMes.ventas)}</h2>${extraDolarInfo}</div>
                                 <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-black dark:border-gray-500"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase tracking-wider">Tráfico Mensual (Tickets)</p><h2 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatNumber(dMes.tickets)}</h2></div>
                                 <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-brand-gray"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase tracking-wider">Ticket Promedio</p><h2 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(dMes.tickets>0 ? dMes.ventas/dMes.tickets : 0)}</h2></div>
                                 <div class="bg-white dark:bg-slate-900 p-5 rounded-xl shadow-sm border-l-4 border-slate-300 dark:border-slate-700"><p class="text-[10px] text-brand-gray dark:text-slate-400 font-bold uppercase tracking-wider">Venta Diaria Promedio</p><h2 class="text-2xl font-black text-brand-black dark:text-white mt-1">${formatCurrency(ventaDiariaMes)}</h2></div>
                             </div>
 
-                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm mb-6">
+                            <div class="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm mb-6 print-break-inside-avoid">
                                 <h3 class="text-sm font-bold text-brand-black dark:text-white mb-4 flex items-center border-b border-gray-200 dark:border-slate-800 pb-2"><i data-lucide="search" class="text-brand-magenta w-4 h-4 mr-2"></i> Detalle Operativo Exacto (${dashboardMes})</h3>
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">UPT</p><h4 class="text-xl font-black text-brand-black dark:text-white">${uptMes}</h4></div>
@@ -923,30 +936,30 @@
                                     <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">Hora Más Fuerte</p><h4 class="text-lg font-black text-brand-black dark:text-white">${maxHora}</h4></div>
                                     <div><p class="text-[10px] text-brand-gray font-bold uppercase mb-1">Tickets / Día Prom.</p><h4 class="text-xl font-black text-brand-black dark:text-white">${tksDiaMes}</h4></div>
                                 </div>
-                                <div class="flex flex-col md:flex-row justify-between items-center mt-4 pt-4 border-t border-gray-200 dark:border-slate-800 text-xs font-bold bg-white dark:bg-slate-900 p-3 rounded-lg">
+                                <div class="flex flex-col md:flex-row justify-between items-center mt-4 pt-4 border-t border-gray-200 dark:border-slate-800 text-xs font-bold bg-white dark:bg-slate-900 p-3 rounded-lg print-break-inside-avoid">
                                     <div class="flex items-center gap-2"><i data-lucide="sun" class="text-brand-magenta w-4 h-4"></i> <span class="text-brand-magenta">Facturación Mañana</span> <span class="text-lg text-brand-black dark:text-white ml-2">${formatCurrency(dMes.ventasManana)}</span></div>
                                     <div class="flex items-center gap-2 mt-2 md:mt-0"><i data-lucide="moon" class="text-amber-500 w-4 h-4"></i> <span class="text-brand-gray dark:text-slate-400">Facturación Tarde</span> <span class="text-lg text-brand-black dark:text-white ml-2">${formatCurrency((dMes.ventas||0) - (dMes.ventasManana||0))}</span></div>
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Diaria (${dashboardMes})</h4><div class="chart-container"><canvas id="chartDias"></canvas></div></div>
-                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Productividad por Hora (${dashboardMes})</h4><div class="chart-container"><canvas id="chartHora"></canvas></div></div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Diaria (${dashboardMes})</h4><div class="chart-container"><canvas id="chartDias"></canvas></div></div>
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Productividad por Hora (${dashboardMes})</h4><div class="chart-container"><canvas id="chartHora"></canvas></div></div>
                             </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución Anual de Ingresos</h4><div class="chart-container"><canvas id="pieChart"></canvas></div></div>
-                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Rendimiento Operativo (Turnos)</h4><div class="chart-container"><canvas id="turnosChart"></canvas></div></div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Distribución Anual de Ingresos</h4><div class="chart-container"><canvas id="pieChart"></canvas></div></div>
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Rendimiento Operativo (Turnos)</h4><div class="chart-container"><canvas id="turnosChart"></canvas></div></div>
                             </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Anual (Ventas vs Ticket)</h4><div class="chart-container"><canvas id="mixedChart"></canvas></div></div>
-                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución de Tráfico Mensual</h4><div class="chart-container"><canvas id="traficoChart"></canvas></div></div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución Anual (Ventas vs Ticket)</h4><div class="chart-container"><canvas id="mixedChart"></canvas></div></div>
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Evolución de Tráfico Mensual</h4><div class="chart-container"><canvas id="traficoChart"></canvas></div></div>
                             </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Eficiencia (Unidades y UPT)</h4><div class="chart-container"><canvas id="unidadesChart"></canvas></div></div>
-                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Crecimiento MoM (%)</h4><div class="chart-container"><canvas id="crecimientoChart"></canvas></div></div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 print-break-inside-avoid">
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Eficiencia (Unidades y UPT)</h4><div class="chart-container"><canvas id="unidadesChart"></canvas></div></div>
+                                <div class="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 print-break-inside-avoid"><h4 class="text-xs font-bold text-brand-gray uppercase mb-4 tracking-widest">Crecimiento MoM (%)</h4><div class="chart-container"><canvas id="crecimientoChart"></canvas></div></div>
                             </div>
 
-                            <div class="bg-brand-black dark:bg-slate-900 text-white rounded-2xl shadow-xl p-8 border border-brand-black dark:border-slate-800 mt-6">
+                            <div class="bg-brand-black dark:bg-slate-900 text-white rounded-2xl shadow-xl p-8 border border-brand-black dark:border-slate-800 mt-6 print-break-inside-avoid">
                                 <h2 class="text-xl font-bold mb-6 flex items-center border-b border-gray-700 dark:border-slate-800 pb-4"><i data-lucide="target" class="mr-3 text-brand-magenta"></i> Foco y Plan de Acción Estratégico</h2>
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm text-gray-300 dark:text-slate-400">
                                     <div><div class="flex items-center mb-2"><div class="bg-gray-800 dark:bg-slate-800 p-1.5 rounded mr-2"><i data-lucide="users" class="text-brand-magenta w-4 h-4"></i></div><h3 class="font-bold text-white">1. Cuidar el Tráfico</h3></div><p class="leading-relaxed text-xs">Observar volumen de tickets. Si bajan los ingresos, se requiere activación de marketing inmediato.</p></div>
@@ -956,11 +969,11 @@
                                 </div>
                             </div>
 
-                            <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-8 border border-gray-100 dark:border-slate-800 mt-6">
+                            <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-8 border border-gray-100 dark:border-slate-800 mt-6 print-break-inside-avoid">
                                 <h2 class="text-xl font-bold text-brand-black dark:text-white mb-6 flex items-center border-b border-gray-100 dark:border-slate-800 pb-4"><i data-lucide="calendar" class="mr-3 text-brand-magenta"></i> Calendario Comercial (Accesorios ARG)</h2>
                                 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                                     ${Object.entries(eventosComerciales).map(([m, evt]) => `
-                                        <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border-t-2 ${m === dashboardMes ? 'border-brand-magenta shadow-md' : 'border-gray-200 dark:border-slate-800'}">
+                                        <div class="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border-t-2 print-break-inside-avoid ${m === dashboardMes ? 'border-brand-magenta shadow-md' : 'border-gray-200 dark:border-slate-800'}">
                                             <h3 class="font-black ${m === dashboardMes ? 'text-brand-magenta' : 'text-brand-black dark:text-white'} text-xs uppercase mb-1">${m}</h3>
                                             <p class="text-[10px] text-brand-gray dark:text-slate-400 font-semibold leading-tight">${evt}</p>
                                         </div>
@@ -975,13 +988,12 @@
                                         <div class="p-2 bg-brand-magenta/20 rounded-lg"><i data-lucide="file-text" class="text-brand-magenta"></i></div>
                                         <h3 class="text-lg font-bold">Diagnóstico Ejecutivo Comercial <span id="diag-subtitle" class="text-sm font-normal text-brand-gray ml-2">(${dashboardMes})</span></h3>
                                     </div>
-                                    <button onclick="toggleDiagModo()" id="btnToggleDiag" class="text-xs font-bold text-brand-magenta bg-brand-black dark:bg-slate-800 border border-brand-magenta/50 px-3 py-1.5 rounded-lg hover:bg-brand-magenta hover:text-white transition">Ver Resumen Anual</button>
+                                    <button onclick="toggleDiagModo()" id="btnToggleDiag" class="text-xs font-bold text-brand-magenta bg-brand-black dark:bg-slate-800 border border-brand-magenta/50 px-3 py-1.5 rounded-lg hover:bg-brand-magenta hover:text-white transition print-hidden">Ver Resumen Anual</button>
                                 </div>
                                 <p id="texto-diagnostico" class="text-sm text-gray-300 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">${generarTextoDiagnosticoComercial(dMes, datosLocalAnio).mensual}</p>
                             </div>
                             ` : ''}
 
-                            <!-- Historial Operativo Compacto -->
                             <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-8 border border-gray-100 dark:border-slate-800 mt-6 print-break-inside-avoid">
                                 <h2 class="text-xl font-bold text-brand-black dark:text-white mb-6 flex items-center border-b border-gray-100 dark:border-slate-800 pb-4">
                                     <i data-lucide="history" class="mr-3 text-brand-magenta"></i> Historial Operativo (Comparativa Anual)
@@ -1009,7 +1021,7 @@
                             }
                             
                             html += `
-                                <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm transition-transform hover:-translate-y-1">
+                                <div class="bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm transition-transform hover:-translate-y-1 print-break-inside-avoid">
                                     <h3 class="text-sm font-bold text-brand-black dark:text-white mb-3 flex items-center border-b border-gray-200 dark:border-slate-800 pb-2">
                                         <span class="text-brand-magenta mr-2 uppercase tracking-wide">${dHist.mes}</span> <span class="text-brand-gray text-xs">Detalle Operativo Exacto</span>
                                     </h3>
@@ -1055,11 +1067,11 @@
 
                     html += `
                         <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
-                            <div class="flex items-center gap-3 mb-6 border-b border-gray-700 dark:border-slate-800 pb-4">
+                            <div class="flex items-center gap-3 mb-6 border-b border-gray-700 dark:border-slate-800 pb-4 print-break-inside-avoid">
                                 <div class="p-2 bg-brand-magenta/20 rounded-lg"><i data-lucide="file-text" class="text-brand-magenta"></i></div>
                                 <h3 class="text-xl font-bold">Conclusiones del Período (${dashboardMes} ${dashboardAnio})</h3>
                             </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm text-gray-300 dark:text-slate-400 leading-relaxed">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-sm text-gray-300 dark:text-slate-400 leading-relaxed print-break-inside-avoid">
                                 <div class="space-y-3">
                                     <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Diagnóstico Comercial (${PUNTOS_VENTA[dashboardLocal] || 'Todos los Locales'})</p>
                                     <div class="whitespace-pre-wrap">${textComercial}</div>
