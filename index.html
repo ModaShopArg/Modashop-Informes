@@ -776,16 +776,28 @@
                     }
                     let difCap = tM_prev > 0 ? ((totalCapGlobal - tM_prev) / tM_prev) * 100 : 0;
                     
-                    let topRubro = Object.keys(capPorCat).map(k => ({cat: k, val: capPorCat[k].v})).sort((a,b)=>b.val-a.val)[0];
-                    let topLocal = Object.keys(capPorLocal).map(k => ({loc: k, val: capPorLocal[k]})).sort((a,b)=>b.val-a.val)[0];
+                    let topRubro = Object.keys(capPorCat).length > 0 ? Object.keys(capPorCat).map(k => ({cat: k, val: capPorCat[k].v})).sort((a,b)=>b.val-a.val)[0] : null;
+                    let topLocal = Object.keys(capPorLocal).length > 0 ? Object.keys(capPorLocal).map(k => ({loc: k, val: capPorLocal[k]})).sort((a,b)=>b.val-a.val)[0] : null;
 
                     let diagCapitalText = `A la fecha de cierre de ${dashboardMes} ${dashboardAnio}, el inventario físico consolidado de la empresa (Depósito + Locales) cuenta con ${formatNumber(totalInvFisico)} unidades. El capital total inmovilizado se valoriza en ${formatCurrency(totalCapGlobal)} (equivalente a ${formatUSD(totalCapGlobal / cotiz)} al tipo de cambio reportado).\n\n`;
-                    if (prevMes) diagCapitalText += `En comparación con el mes anterior (${prevMes}), el capital global experimentó una variación del ${difCap > 0 ? '+' : ''}${difCap.toFixed(1)}%. `;
-                    if (topLocal) diagCapitalText += `El punto con mayor acumulación de valor es ${PUNTOS_VENTA[topLocal.loc] || topLocal.loc} (${formatCurrency(topLocal.val)}). `;
-                    if (topRubro) diagCapitalText += `A nivel de composición de stock, el rubro "${topRubro.cat}" concentra la mayor inversión.`;
+                    if (prevMes) diagCapitalText += `En comparación con el mes anterior (${prevMes}), el capital global experimentó una variación del ${difCap > 0 ? '+' : ''}${difCap.toFixed(1)}%.`;
+
+                    let desgloseCapital = '\n\n📊 ANÁLISIS DE DISTRIBUCIÓN POR SEDE:\n';
+                    ['concordia', 'chajari', 'tendens', 'deposito'].forEach(loc => {
+                        let valLoc = capPorLocal[loc] || 0;
+                        let pctLoc = totalCapGlobal > 0 ? ((valLoc / totalCapGlobal) * 100).toFixed(1) : 0;
+                        let nombreLoc = PUNTOS_VENTA[loc] || loc;
+                        desgloseCapital += `• ${nombreLoc}: ${formatCurrency(valLoc)} (${pctLoc}%)\n`;
+                    });
+
+                    if (topLocal && totalCapGlobal > 0 && topRubro) {
+                        desgloseCapital += `\n💡 Conclusión: ${PUNTOS_VENTA[topLocal.loc] || topLocal.loc} retiene el mayor volumen de capital, concentrando el ${((topLocal.val / totalCapGlobal) * 100).toFixed(1)}% del total. A nivel global, el rubro "${topRubro.cat}" lidera la inversión, siendo clave asegurar su rotación para no inmovilizar liquidez.`;
+                    }
+                    diagCapitalText += desgloseCapital;
 
                     let txtAnualPatrimonial = "Datos insuficientes para el análisis anual.";
                     const mesesDataCap = [...new Set(datosAnioGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).map(d=>d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]);
+                    
                     if(mesesDataCap.length > 0) {
                         let priMes = mesesDataCap[0]; let ultMes = mesesDataCap[mesesDataCap.length-1];
                         let capIn = datosAnioGlobal.filter(d=>d.mes===priMes).reduce((a,c)=>a+(c.valorMercaderia||0),0);
@@ -799,6 +811,24 @@
                         });
 
                         txtAnualPatrimonial = `📌 DIAGNÓSTICO ANUAL - AÑO FISCAL ${dashboardAnio}\n\nEvolución del Capital: Durante el transcurso de ${dashboardAnio}, el capital valorizado global inició en el mes de ${priMes} con ${formatCurrency(capIn)} y alcanzó ${formatCurrency(capFin)} hacia ${ultMes}, representando una variación neta del ${dAn>0?'+':''}${dAn.toFixed(1)}% en pesos corrientes.\n\nEl pico de inmovilización de capital del año se registró en el mes de ${mesPico} con un total de ${formatCurrency(maxCap)}.`;
+
+                        let anualLocalesStr = '\n\n📊 COMPOSICIÓN DEL CAPITAL AL CIERRE DEL PERÍODO:\n';
+                        let valLocalesFin = {};
+                        ['concordia', 'chajari', 'tendens', 'deposito'].forEach(loc => {
+                            let valLocFin = datosAnioGlobal.filter(d=>d.mes===ultMes && d.puntoVenta===loc).reduce((a,c)=>a+(c.valorMercaderia||0),0);
+                            valLocalesFin[loc] = valLocFin;
+                            let pctLocFin = capFin > 0 ? ((valLocFin / capFin) * 100).toFixed(1) : 0;
+                            let nombreLoc = PUNTOS_VENTA[loc] || loc;
+                            anualLocalesStr += `• ${nombreLoc}: ${formatCurrency(valLocFin)} (${pctLocFin}%)\n`;
+                        });
+                        
+                        if (Object.keys(valLocalesFin).length > 0) {
+                            let locTopAnual = Object.keys(valLocalesFin).reduce((a, b) => valLocalesFin[a] > valLocalesFin[b] ? a : b);
+                            if (valLocalesFin[locTopAnual] > 0) {
+                                anualLocalesStr += `\n💡 Conclusión Anual: El año finaliza con ${PUNTOS_VENTA[locTopAnual] || locTopAnual} como el principal centro de retención de valor. Se sugiere planificar la redistribución estratégica y priorizar auditorías rotativas para mantener un equilibrio de inventario saludable.`;
+                            }
+                        }
+                        txtAnualPatrimonial += anualLocalesStr;
                     }
                     
                     lastDiagCapitalMensual = diagCapitalText;
@@ -1107,18 +1137,7 @@
                     const dMesVentas = datosLocalAnio.find(d=>d.mes===dashboardMes) || datosLocalAnio[datosLocalAnio.length-1];
                     let textComercial = dMesVentas ? generarTextoDiagnosticoComercial(dMesVentas, datosLocalAnio).mensual : 'Sin datos comerciales para este mes en el local seleccionado.';
                     
-                    let totalCapGlobal = 0; let cotiz = 1;
-                    dMesGlobal.forEach(d => { if(d.isStockLoaded || d.valorMercaderia > 0) { totalCapGlobal += (d.valorMercaderia || 0); if(d.cotizacionDolar>1) cotiz=d.cotizacionDolar; } });
-                    
-                    let txtAnualPatrimonial = "Datos insuficientes para el análisis anual.";
-                    const mesesDataCap = [...new Set(datosAnioGlobal.filter(d=>d.isStockLoaded || d.valorMercaderia>0).map(d=>d.mes))].sort((a,b)=>monthOrder[a]-monthOrder[b]);
-                    if(mesesDataCap.length > 0) {
-                        let priMes = mesesDataCap[0]; let ultMes = mesesDataCap[mesesDataCap.length-1];
-                        let capIn = datosAnioGlobal.filter(d=>d.mes===priMes).reduce((a,c)=>a+(c.valorMercaderia||0),0);
-                        let capFin = datosAnioGlobal.filter(d=>d.mes===ultMes).reduce((a,c)=>a+(c.valorMercaderia||0),0);
-                        let dAn = capIn > 0 ? ((capFin-capIn)/capIn)*100 : 0;
-                        txtAnualPatrimonial = `📌 DIAGNÓSTICO ANUAL - AÑO FISCAL ${dashboardAnio}\n\nEvolución del Capital: Durante el transcurso de ${dashboardAnio}, el capital valorizado global inició en ${priMes} con ${formatCurrency(capIn)} y alcanzó ${formatCurrency(capFin)} hacia ${ultMes}, representando una variación neta del ${dAn>0?'+':''}${dAn.toFixed(1)}% en pesos corrientes.`;
-                    }
+                    let txtAnualPat = lastDiagCapitalAnual || "Datos insuficientes para el análisis anual.";
 
                     html += `
                         <div class="bg-brand-black dark:bg-slate-900 text-white p-8 rounded-2xl shadow-xl mt-8 border border-brand-black dark:border-slate-800 print-break-inside-avoid">
@@ -1133,8 +1152,8 @@
                                 </div>
                                 <div class="space-y-3">
                                     <p class="text-brand-gray uppercase font-bold tracking-widest text-[10px]">Diagnóstico Patrimonial Global</p>
-                                    <div class="whitespace-pre-wrap mb-4">A la fecha de cierre, el capital inmovilizado global de la empresa asciende a ${formatCurrency(totalCapGlobal)} (equivalente a ${formatUSD(totalCapGlobal / cotiz)}). Este informe incluye valorizaciones detalladas en el apartado de capital superior.</div>
-                                    <div class="whitespace-pre-wrap text-xs text-gray-400 border-t border-gray-700 pt-3 mt-3">${txtAnualPatrimonial}</div>
+                                    <div class="whitespace-pre-wrap mb-4">${lastDiagCapitalMensual}</div>
+                                    <div class="whitespace-pre-wrap text-xs text-gray-400 border-t border-gray-700 pt-3 mt-3">${txtAnualPat}</div>
                                 </div>
                             </div>
                         </div>
