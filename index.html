@@ -246,10 +246,22 @@
             let str = String(val).trim().replace(/[$$\s]/g, '');
             const lastComma = str.lastIndexOf(',');
             const lastDot = str.lastIndexOf('.');
-            if (lastComma > lastDot) str = str.replace(/\./g, '').replace(',', '.');
-            else if (lastDot > lastComma && lastComma !== -1) str = str.replace(/,/g, '');
-            else if (lastComma !== -1 && lastDot === -1) str = str.replace(',', '.');
-            else if (lastDot !== -1 && lastComma === -1) str = str.replace(/\./g, '');
+            
+            if (lastComma > lastDot && lastDot !== -1) {
+                str = str.replace(/\./g, '').replace(',', '.');
+            } else if (lastDot > lastComma && lastComma !== -1) {
+                str = str.replace(/,/g, '');
+            } else if (lastComma !== -1 && lastDot === -1) {
+                str = str.replace(',', '.');
+            } else if (lastDot !== -1 && lastComma === -1) {
+                const parts = str.split('.');
+                if (parts.length === 2 && parts[1].length !== 3) {
+                    // Es muy probable que sea un decimal
+                } else {
+                    // Es un separador de miles
+                    str = str.replace(/\./g, '');
+                }
+            }
             return parseFloat(str) || 0;
         };
 
@@ -320,7 +332,7 @@
             let dataToSave = { 
                 mes: formVentas.mes, año: formVentas.año, puntoVenta: formVentas.puntoVenta, 
                 isVentasLoaded: true, ventas, ventasManana, tickets, ticketsManana, 
-                productosVendidos: window.parseInputNumber(formVentas.unidades), 
+                productosVendidos: window.parseInputNumber(document.getElementById('input-unidades')?.value), 
                 grillaDiaria, tiposDia, diasOperativos 
             };
             
@@ -341,7 +353,7 @@
             const stockLimpio = formStock.stock.filter(s => s.categoria).map(s => ({ categoria: s.categoria, cantidad: window.parseInputNumber(s.cantidad), valor: window.parseInputNumber(s.valor) }));
             let dataToSave = { 
                 mes: formStock.mes, año: formStock.año, puntoVenta: formStock.puntoVenta, 
-                cotizacionDolar: window.parseInputNumber(formStock.cotizacionDolar) || 1, 
+                cotizacionDolar: window.parseInputNumber(document.getElementById('input-dolar')?.value) || 1, 
                 isStockLoaded: true, stock: stockLimpio, valorMercaderia: stockLimpio.reduce((acc, item) => acc + item.valor, 0) 
             };
             await setDoc(doc(db, 'registros_mensuales', docId), dataToSave, { merge: true });
@@ -960,7 +972,6 @@
                             }
                         }
 
-                        // Cálculo Tickets por turno (Mes Actual)
                         let tksMesM = dMes.ticketsManana;
                         if(tksMesM === undefined && dMes.grillaDiaria) {
                             tksMesM = 0;
@@ -1082,7 +1093,6 @@
                                 });
                             }
                             
-                            // Cálculo Tickets por turno (Historial)
                             let tksMananaH = dHist.ticketsManana;
                             if(tksMananaH === undefined && dHist.grillaDiaria) {
                                 tksMananaH = 0;
@@ -1193,8 +1203,11 @@
                         </td>`;
                     horasDinamicas.forEach(h => {
                         let bg = h <= 12 ? 'bg-amber-50/50 dark:bg-amber-900/10' : 'bg-brand-light/30 dark:bg-brand-magenta/5';
-                        let valV = currentRec?.grillaDiaria?.[i]?.[h]?.v || '';
-                        let valT = currentRec?.grillaDiaria?.[i]?.[h]?.t || '';
+                        
+                        let valV = currentRec?.grillaDiaria?.[i]?.[h]?.v;
+                        valV = valV !== undefined ? formatNumber(valV) : '';
+                        let valT = currentRec?.grillaDiaria?.[i]?.[h]?.t;
+                        valT = valT !== undefined ? formatNumber(valT) : '';
                         
                         filas += `<td class="p-1 border-r border-gray-200 dark:border-slate-700 ${bg}">
                             <input type="text" id="v_${i}_${h}" value="${valV}" placeholder="$ Venta" ${disabledAttr} class="w-full text-[10px] p-1.5 mb-1 border border-gray-300 dark:border-slate-600 rounded text-center bg-white dark:bg-slate-900 outline-none focus:ring-1 focus:ring-brand-magenta font-bold text-brand-black dark:text-white ${opacityClass}">
@@ -1203,12 +1216,14 @@
                     });
                     filas += `</tr>`;
                 }
+                
+                let valUnidades = currentRec?.productosVendidos !== undefined ? formatNumber(currentRec.productosVendidos) : formVentas.unidades;
 
                 main.innerHTML = `
                     <div class="max-w-full mx-auto bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 animate-in fade-in">
                         <div class="mb-6 border-b border-gray-100 dark:border-slate-800 pb-4 flex justify-between items-center">
                             <div><h2 class="text-2xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="keyboard" class="text-brand-magenta mr-2 w-6 h-6"></i> Carga Operativa (Súper Grilla)</h2><p class="text-brand-gray text-sm mt-1">Ingresa los datos por hora. El sistema calculará la Facturación Total, Tickets y Turnos automáticamente.</p></div>
-                            ${isBlocked ? `<button onclick="editarRegistroActual('ventas')" class="bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta border border-brand-magenta/30 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-brand-magenta hover:text-white transition flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4"></i> Modificar Registro</button>` : ''}
+                            ${isBlocked ? `<button type="button" onclick="editarRegistroActual('ventas')" class="bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta border border-brand-magenta/30 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-brand-magenta hover:text-white transition flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4"></i> Modificar Registro</button>` : ''}
                         </div>
                         
                         ${isBlocked ? `
@@ -1218,18 +1233,18 @@
                             </div>
                         ` : ''}
 
-                        <form onsubmit="submitVentasForm(event)" class="space-y-6" id="form-carga-ventas">
+                        <form onsubmit="submitVentasForm(event)" onkeydown="if(event.key === 'Enter' && event.target.tagName !== 'BUTTON') { event.preventDefault(); return false; }" class="space-y-6" id="form-carga-ventas">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800">
                                 <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Local</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white cursor-pointer" onchange="handleVentasForm('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).filter(([k])=>k!=='deposito').map(([k,v]) => `<option value="${k}" ${formVentas.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select></div>
                                 <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Mes</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white cursor-pointer" onchange="handleVentasForm('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formVentas.mes===m?'selected':''}>${m}</option>`).join('')}</select></div>
                                 <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Año</label><input type="number" class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white" value="${formVentas.año}" onchange="handleVentasForm('año', this.value)" required></div>
-                                <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Total Unidades Vendidas del Mes</label><input type="text" ${disabledAttr} class="w-full p-2.5 bg-white dark:bg-slate-800 border border-brand-magenta/40 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-brand-magenta text-brand-black dark:text-white ${opacityClass}" placeholder="Ej: 1450" value="${currentRec?.productosVendidos || formVentas.unidades}" onchange="handleVentasForm('unidades', this.value)" required></div>
+                                <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Total Unidades Vendidas del Mes</label><input type="text" id="input-unidades" ${disabledAttr} class="w-full p-2.5 bg-white dark:bg-slate-800 border border-brand-magenta/40 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-brand-magenta text-brand-black dark:text-white ${opacityClass}" placeholder="Ej: 1450" value="${valUnidades}" onchange="handleVentasForm('unidades', this.value)" required></div>
                             </div>
                             
                             <div class="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm relative">
                                 <div class="bg-brand-light dark:bg-brand-magenta/10 p-3 font-bold text-brand-magenta border-b border-gray-200 dark:border-slate-700 text-sm flex items-center justify-between">
                                     <div class="flex items-center"><i data-lucide="grid" class="w-4 h-4 mr-2"></i> Grilla de Ingreso: Día a Día, Hora a Hora</div>
-                                    <div class="text-[10px] font-bold text-brand-gray bg-white dark:bg-slate-800 px-2 py-1 rounded shadow-sm">Si marcas un día como Domingo/Feriado, no sumará al divisor del promedio diario.</div>
+                                    <div class="text-[10px] font-bold text-brand-gray bg-white dark:bg-slate-800 px-2 py-1 rounded shadow-sm">La tecla Enter ha sido deshabilitada por seguridad para evitar guardados accidentales.</div>
                                 </div>
                                 <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
                                     <table class="w-full text-xs text-left border-collapse tabla-excel dark:text-gray-300">
@@ -1262,7 +1277,7 @@
                     <div class="max-w-3xl mx-auto bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 animate-in fade-in">
                         <div class="mb-6 border-b border-gray-100 dark:border-slate-800 pb-4 flex justify-between items-center">
                             <h2 class="text-2xl font-bold text-brand-black dark:text-white flex items-center"><i data-lucide="package" class="text-brand-magenta mr-2 w-6 h-6"></i> Carga de Inventario Patrimonial</h2>
-                            ${isBlocked ? `<button onclick="editarRegistroActual('stock')" class="bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta border border-brand-magenta/30 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-brand-magenta hover:text-white transition flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4"></i> Modificar Registro</button>` : ''}
+                            ${isBlocked ? `<button type="button" onclick="editarRegistroActual('stock')" class="bg-brand-light dark:bg-brand-magenta/20 text-brand-magenta border border-brand-magenta/30 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-brand-magenta hover:text-white transition flex items-center gap-2"><i data-lucide="edit-3" class="w-4 h-4"></i> Modificar Registro</button>` : ''}
                         </div>
                         
                         ${isBlocked ? `
@@ -1272,12 +1287,12 @@
                             </div>
                         ` : ''}
 
-                        <form onsubmit="submitStockForm(event)" class="space-y-6" id="form-carga-stock">
+                        <form onsubmit="submitStockForm(event)" onkeydown="if(event.key === 'Enter' && event.target.tagName !== 'BUTTON') { event.preventDefault(); return false; }" class="space-y-6" id="form-carga-stock">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-950 p-5 rounded-xl border border-slate-200 dark:border-slate-800">
                                 <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Local</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white cursor-pointer" onchange="handleStockForm('puntoVenta', this.value)">${Object.entries(PUNTOS_VENTA).map(([k,v]) => `<option value="${k}" ${formStock.puntoVenta===k?'selected':''}>${v}</option>`).join('')}</select></div>
                                 <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Mes</label><select class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white cursor-pointer" onchange="handleStockForm('mes', this.value)">${mesesList.map(m => `<option value="${m}" ${formStock.mes===m?'selected':''}>${m}</option>`).join('')}</select></div>
                                 <div><label class="block text-[10px] font-bold text-brand-gray uppercase mb-1">Año</label><input type="number" class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-magenta font-bold text-brand-black dark:text-white" value="${formStock.año}" onchange="handleStockForm('año', this.value)" required></div>
-                                <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Dólar</label><input type="text" ${disabledAttr} class="w-full p-2.5 bg-white dark:bg-slate-800 border border-brand-magenta/40 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-brand-magenta text-brand-black dark:text-white ${opacityClass}" value="${currentRec?.cotizacionDolar || formStock.cotizacionDolar}" onchange="handleStockForm('cotizacionDolar', this.value)" required></div>
+                                <div><label class="block text-[10px] font-bold text-brand-magenta uppercase mb-1">Dólar</label><input type="text" id="input-dolar" ${disabledAttr} class="w-full p-2.5 bg-white dark:bg-slate-800 border border-brand-magenta/40 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-brand-magenta text-brand-black dark:text-white ${opacityClass}" value="${currentRec?.cotizacionDolar || formStock.cotizacionDolar}" onchange="handleStockForm('cotizacionDolar', this.value)" required></div>
                             </div>
                             <div class="bg-white dark:bg-slate-950 p-6 rounded-xl border border-gray-200 dark:border-slate-800">
                                 <div class="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-slate-800 pb-4">
@@ -1293,14 +1308,17 @@
                 
                 const cont = document.getElementById('stock-rows-container');
                 const stockToRender = (isBlocked && currentRec.stock) ? currentRec.stock : formStock.stock;
-                cont.innerHTML = stockToRender.map((item, idx) => `
+                cont.innerHTML = stockToRender.map((item, idx) => {
+                    let valCantidad = item.cantidad !== undefined && item.cantidad !== '' ? formatNumber(item.cantidad) : '';
+                    let valValor = item.valor !== undefined && item.valor !== '' ? formatNumber(item.valor) : '';
+                    return `
                     <div class="flex gap-2 items-center">
                         <div class="flex-[2]"><input type="text" placeholder="Rubro Ej: Carteras" class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta font-bold ${opacityClass}" value="${item.categoria}" onchange="handleStockChange(${idx}, 'categoria', this.value)" required ${disabledAttr} /></div>
-                        <div class="flex-1"><input type="text" placeholder="Cant." class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-center text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta font-bold ${opacityClass}" value="${item.cantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required ${disabledAttr}/></div>
-                        <div class="flex-[1.5] relative"><span class="absolute left-3 top-2.5 text-gray-400 font-bold">$</span><input type="text" placeholder="Total" class="w-full pl-7 p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${item.valor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required ${disabledAttr}/></div>
+                        <div class="flex-1"><input type="text" placeholder="Cant." class="w-full p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-center text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta font-bold ${opacityClass}" value="${valCantidad}" onchange="handleStockChange(${idx}, 'cantidad', this.value)" required ${disabledAttr}/></div>
+                        <div class="flex-[1.5] relative"><span class="absolute left-3 top-2.5 text-gray-400 font-bold">$</span><input type="text" placeholder="Total" class="w-full pl-7 p-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-magenta ${opacityClass}" value="${valValor}" onchange="handleStockChange(${idx}, 'valor', this.value)" required ${disabledAttr}/></div>
                         ${stockToRender.length > 1 ? `<button type="button" onclick="removeStockRow(${idx})" class="p-2 text-red-400 hover:text-brand-magenta transition ${opacityClass}" ${disabledAttr}><i data-lucide="trash-2" class="w-5 h-5"></i></button>` : '<div class="w-9"></div>'}
                     </div>
-                `).join('');
+                `}).join('');
                 lucide.createIcons();
 
             } else {
